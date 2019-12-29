@@ -1,0 +1,226 @@
+<?php
+  require_once "../../../common/Common.php";
+  require_once "../../../db/Query.php";
+
+  require_once "common.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+  
+  function categorySelect( $run_groups, $category, $sccaClass = array() ) {
+    $selectId = "category".$category[ 'id' ];
+    if ( !empty( $sccaClass ) ) {
+      $selectId .= '-class'.$sccaClass[ 'id' ];
+    }
+?>
+             <div class="control-group">
+                <label class="control-label"><?php echo $category[ 'name' ]; if ( !empty( $sccaClass ) ) { echo ", ".$sccaClass[ 'initials' ]; } ?></label>
+                <div class="controls">
+                  <select class="input-medium" id="<?php echo $selectId; ?>" data-category="<?php echo $category[ 'id' ]; ?>"<?php if ( !empty( $sccaClass ) ) { echo ' data-class="'.$sccaClass[ 'id' ].'"'; } ?>>
+
+<?php       foreach( $run_groups as $index => $run_group ) { ?>
+                    <option value="<?php echo $run_group; ?>">Run Group <?php echo chr( 64 + $run_group ); ?></option>
+<?php       } ?>
+                  </select>
+                </div>
+              </div>
+<?php
+  }
+
+  $redirect = true;
+  $q = new Query( "events" );
+  $q->joinOn( "site" );
+
+  if ( !empty( $_SESSION[ 'event_id' ] ) ) {
+    $event = $q->selectById( $_SESSION[ 'event_id' ] );
+    if ( !empty( $event ) &&
+         ( $event[ 'organization_id' ] == $user[ 'organization_id' ] ) ) {
+      $redirect = false;
+    }
+  }
+
+  if ( $redirect ) {
+    header( "Location: index.html" );
+  }    
+
+  $config = json_decode( $event[ 'configuration' ] );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  $q = new Query( "comp_categories" );
+  $categories = $q->addWhere( 'group_id', $event[ 'comp_group_id' ] )
+                  ->addWhere( 'public', 1 )
+                  ->addWhere( 'run_group_choice', 0 )
+                  ->addOrder( 'name' )
+                  ->select();
+?>
+
+<?php configureNav( $event, $org ); ?>
+
+        <div class="row-fluid">
+
+<?php configurePills(); ?>
+
+          <div class="span9" id="configure-div">
+
+<?php if ( empty( $config ) ) { ?>
+
+            <div class="alert alert-error" id="error-div">Run / Work Order must be configured before Competition Category Run Groups.</div>
+
+<?php } else if ( empty( $categories ) ) { ?>
+
+            <div class="alert alert-info" id="error-div">All categories for this event have run group choice.</div>
+
+<?php } else { ?>
+
+            <form class="form-horizontal" id="event-form" name="event-form">
+
+
+<?php
+        foreach( $categories as $c ) {
+          
+          if ( $c[ 'divide_by_class' ] == 0 ) {
+            categorySelect( $config->comp_groups, $c );
+          } else {
+            $classesJson = json_decode( $c[ 'classes' ] );
+
+            foreach( $classesJson as $cj ) {
+
+              $q = new Query( "scca_classes" );
+              $q->addOrder( id );
+              $q->addWhere( "date_effective", date( "Y", strtotime( $event[ 'date' ] ) ), "=", "year" );
+
+              if ( $cj != "all" ) {
+                $tokens = explode( "_", $cj );
+                $q->addWhere( "type", $tokens[ 1 ] );
+              }
+
+              $classes = $q->select();
+              foreach( $classes as $d ) {
+                categorySelect( $config->comp_groups, $c, $d );
+              }
+
+            }
+
+          }
+        }
+?>              
+			  <div class="alert alert-error hide" id="error-div">Whoops, something went wrong. We were unable to save your changes.</div>
+			  <div class="alert alert-success hide" id="success-div">Your changes have been saved.</div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="save-btn" type="button">Save Changes</button>
+                <button class="btn" id="clear-btn" type="button">Clear Changes</button>
+              </div>              
+
+            </form>
+<?php } ?>
+          </div>
+
+        </div>
+
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+
+        var config = jQuery.parseJSON( '<?php echo json_encode( $config ); ?>' );
+
+        if ( config.categories == null ) {
+          config.categories = [];
+        }
+
+        
+        var category = '', run_group = 0;
+        
+        function parseConfig() {
+
+          var selects = $( "[data-category]" );
+
+          $.each( config.categories, function( index, category ) {
+          
+            var selectId = "#category" + category.id;
+            
+            if ( typeof category.classes == 'undefined' ) {
+
+              $( selectId ).val( category.run_group );
+            } else { 
+
+              $.each( category.classes, function( index, sccaClass ) {
+                $( selectId + "-class" + sccaClass.id ).val( sccaClass.run_group );
+              });
+            }
+          });          
+
+        }
+
+        $( "#clear-btn" ).click( function() {
+          parseConfig();
+        });
+
+        $( "#save-btn" ).click( function() {
+        
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+
+          var categories = {}
+          
+          $.each( $( "[id^=category]" ), function( index, item ) {
+          
+            var categoryId = $( item ).data( 'category' );
+
+            if ( typeof categories[ categoryId ] == 'undefined' ) {
+              categories[ categoryId ] = { 'id' : categoryId };
+            }
+
+            var classId = $( item ).data( 'class' );
+            
+            if ( typeof classId == 'undefined' ) {
+              categories[ categoryId ][ 'run_group' ] = $( item ).val();
+
+            } else {
+
+              if ( typeof categories[ categoryId ][ 'classes' ] == 'undefined' ) {
+                categories[ categoryId ][ 'classes' ] = [];
+              }
+
+              categories[ categoryId ][ 'classes' ].push(
+                { 'id' : classId, 'run_group' : $( item ).val() }
+              );
+            }
+            
+          });
+
+          config.categories = [];          
+          
+          $.each( categories, function( id, category ) {
+            config.categories.push( category );
+          });
+          
+          $.post( "<?php echo apiHref; ?>/db/events/<?php echo $event[ 'id' ]; ?>",
+                  { 'configuration' : config },
+                  function( json ) {
+            if ( json.updated == 0 ) {
+			  $( "#error-div" ).slideDown();
+			} else {
+			  $( "#success-div" ).slideDown();
+			}
+          });
+
+        });
+
+        parseConfig();
+      </script>
+
+<?php Display::closeBody(); ?>

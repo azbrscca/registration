@@ -1,0 +1,125 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  require_once osDir."PHPExcel-1.7.6//Classes/PHPExcel.php";
+
+  require_once "spreadsheets/announcer.php";
+  require_once "spreadsheets/forms.php";
+  require_once "spreadsheets/rallyx_ts.php";
+  require_once "spreadsheets/scoreboard.php";
+  require_once "spreadsheets/scoring.php";
+  require_once "spreadsheets/timing.php";
+  require_once "spreadsheets/workers.php";
+
+  require_once "xml.php";
+
+  function clean_name( $dirty_name ) {
+    $clean_name = trim( $dirty_name );
+    $clean_name = ucfirst( $clean_name );
+    $clean_name = preg_replace( "/&#039;/", "'", $clean_name );
+    $clean_name = html_entity_decode( $clean_name );
+    return $clean_name;
+  }
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  $args = Functions::cleanArray( $_POST );
+  if ( empty( $args[ 'order' ] ) ) {
+    $args[ 'order' ] = 1;
+  }
+
+  if ( isset( $args[ 'event_id' ] ) ) {
+
+    $q = new Query( "events" );
+    $event = $q->joinOn( "organization" )
+              ->joinOn( "site" )
+	            ->joinOn( "event_type" )
+              ->timestamps( true )
+              ->selectById( $args[ 'event_id' ] );
+
+    if ( $args[ 'action' ] =="spreadsheet" ) {
+
+      $excelWorkbook = new PHPExcel();
+      $excelWorkbook->getProperties()->setCreator("Jeff Israel");
+
+      $excelWorkbook->getDefaultStyle()->getFont()->setName( 'Arial' );
+      $excelWorkbook->getDefaultStyle()->getFont()->setSize( 12 );
+
+      $sheetNdx = 0;
+
+      $excelWorkbook->setActiveSheetIndex( $sheetNdx++ );
+      $excelSheet = $excelWorkbook->getActiveSheet();
+      forms_spreadsheet( $event, $excelSheet, $args[ 'order' ] );
+
+      if ( $event[ 'run_groups' ] > 0 ) {
+
+        $excelWorkbook->createSheet();
+        $excelWorkbook->setActiveSheetIndex( $sheetNdx++ );
+        $excelSheet = $excelWorkbook->getActiveSheet();
+        announcer_spreadsheet( $event, $excelSheet );
+
+        $excelWorkbook->createSheet();
+        $excelWorkbook->setActiveSheetIndex( $sheetNdx++ );
+        $excelSheet = $excelWorkbook->getActiveSheet();
+        scoreboard_spreadsheet( $event, $excelSheet );
+
+        $excelWorkbook->createSheet();
+        $excelWorkbook->setActiveSheetIndex( $sheetNdx++ );
+        $excelSheet = $excelWorkbook->getActiveSheet();
+        timing_spreadsheet( $event, $excelSheet );
+
+        $excelWorkbook->createSheet();
+        $excelWorkbook->setActiveSheetIndex( $sheetNdx++ );
+        $excelSheet = $excelWorkbook->getActiveSheet();
+        workers_spreadsheet( $event, $excelSheet );
+
+        $excelWorkbook->createSheet();
+        $excelWorkbook->setActiveSheetIndex( $sheetNdx++ );
+        $excelSheet = $excelWorkbook->getActiveSheet();
+        scoring_spreadsheet( $event, $excelSheet );
+
+      } else if ( strtolower( $event[ 'event_type_name' ] ) == "rallycross" ) {
+        
+        $excelWorkbook->createSheet();
+        $excelWorkbook->setActiveSheetIndex( $sheetNdx++ );
+        $excelSheet = $excelWorkbook->getActiveSheet();
+        rallyx_ts_spreadsheet( $event, $excelSheet );
+
+      }
+
+      $excelWorkbook->setActiveSheetIndex( 0 );
+
+      header('Content-Type: application/vnd.ms-excel');
+      header('Content-Disposition: attachment;filename="'.preg_replace( "/ /", "_", $event[ 'organization_shortname' ] )."-".$event[ 'date' ].'.xls"');
+      header('Cache-Control: max-age=0');
+      $objWriter = PHPExcel_IOFactory::createWriter($excelWorkbook, 'Excel5');
+
+      $objWriter->save('php://output');
+
+      unset( $objWriter );
+
+    } else if ( $args[ 'action' ] == "forms" ) {
+      forms_as_xml( $event, $args[ 'order' ], $args[ 'form_type' ] );
+    }
+  }
+
+  function getColIndex( $col ) {
+    $index = "";
+    if ( floor( $col / 26 ) > 0 ) {      
+      $index = chr( floor( $col / 26 ) + 64 );
+    }
+    $index .= chr( ( $col % 26 ) + 65 );
+    return $index;
+  }
+?>

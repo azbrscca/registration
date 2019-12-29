@@ -1,0 +1,420 @@
+<?php
+  require_once "../../../common/Common.php";
+  require_once "../../../db/Query.php";
+
+  require_once "common.php";
+  require_once "configuration.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );
+  }
+  Session::checkAccess( $user, $org );
+
+  $redirect = true;
+  $q = new Query( "events" );
+  $q->joinOn( "site" );
+
+  if ( !empty( $_SESSION[ 'event_id' ] ) ) {
+    $event = $q->selectById( $_SESSION[ 'event_id' ] );
+    if ( !empty( $event ) &&
+         ( $event[ 'organization_id' ] == $user[ 'organization_id' ] ) ) {
+      $redirect = false;
+    }
+  }
+
+  if ( $redirect ) {
+    header( "Location: index.html" );
+  } else if ( !empty( $_POST ) ) {
+    $args = Functions::cleanArray( $_POST );
+    if ( !empty( $args[ 'action' ] ) && ( $args[ 'action' ] == "assign-workers" ) ) {
+      assignWorkers( $event );
+    }
+  }
+
+  $config = json_decode( $event[ 'configuration' ] );
+  $admin = json_decode( $event[ 'admin' ], true );
+  $workers = ( empty( $admin[ 'work_positions' ] ) ? $event[ 'organization_id' ] : $admin[ 'work_positions' ] );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+?>
+<?php configureNav( $event, $org ); ?>
+
+        <div class="row-fluid">
+
+<?php configurePills(); ?>
+
+        <div class="offset1 span8">
+          <form class="form-horizontal" id="configuration-form" method="post">
+            <input name="action" type="hidden" value="assign-workers" />
+            <div id="forms-div">
+            </div>
+          </form>
+        </div>
+
+      </div>
+
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/jquery.scrollTo.min.js"></script>
+      <script type="text/javascript">
+
+        var config = jQuery.parseJSON( '<?php echo json_encode( $config ); ?>' );
+        var default_work_id = <?php echo $event['default_work_pos']; ?>;
+        var entry_list = [], grid = {}, workPosMap = {}, workPosList = [];
+        workPosMap[ 0 ] = "None";
+
+        $( "#affix-div" ).append( $( "<div/>", { 'id' : "grid" } ) );
+
+        function gridDetails() {
+
+          $.each( grid, function( group ) {
+            grid[ group ] = {};
+			      $.each( workPosMap, function( id, name ) {
+			        grid[ group ][ id ] = { 'name': name, 'count' : 0 };
+			      });
+		      });
+
+		      $.each( $( "[data-field^=work_position]" ), function( index, select ) {
+		        var group = String.fromCharCode( parseInt( $( select ).data( 'run_group' ) ) + 64 );
+		        var workPosition = parseInt( $( select ).val() );
+		        grid[ group ][ workPosition ][ 'count' ]++;
+		      });
+
+          $.each( grid, function( index, group ) {
+            var groupDiv = $( "#grid-" + index );
+            $.each( group, function( i, wp ) {
+              groupDiv.append( $( "<p/>" ).append( wp.name + ' ' + wp.count ) );
+            });
+
+          });
+        }
+
+        function cancelForm( item ) {
+          $( item ).removeClass( 'btn-danger' );
+          $( "#submit-div" ).remove();
+        }
+
+        function moveToGroup( group ) {
+          var groupChar = String.fromCharCode( parseInt( group ) + 64 );
+          $.scrollTo( $( "#grid-" + groupChar ), 800, { offset: -60 } );
+        }
+
+        function submitForm( item ) {
+		      if ( $( item ).hasClass( 'btn-danger' ) ) {
+			      $( "#configuration-form" ).submit();
+
+		      } else {
+			      $( item ).addClass( 'btn-danger' );
+
+			      var div = $( "<div/>", { 'class' : "alert alert-danger", 'id' : "submit-div" } )
+			      div.append(
+				      $( "<button/>", { 'class' : "close pull-right", 'type' : "button" } )
+				        .html( "&times" )
+				        .on( 'click', function() { cancelForm( item ); } ) )
+			          .append( "This will automatically assign worker assignments based on registration order and preferences. " )
+			          .append( "Please click 'Assign Workers' to confirm. " )
+			          .append( "Close this dialog to cancel." );
+
+			      $( item ).parent().after( div );
+		      }
+        }
+
+        function updateForm( id ) {
+
+          var formData = {};
+          $.each( $( "[data-id=" + id + "]" ), function( index, item ) {
+            var field = $( item ).data( 'field' );
+            if ( typeof field != 'undefined' ) {
+              formData[ field ] = $( item ).val();
+            }
+          });
+
+          $.post( "<?php echo apiHref; ?>db/entry_forms/" + id,
+                  formData,
+                  function( json ) {
+
+            var btn = $( "button[data-id=" + id + "]" );
+
+            if ( json.updated == 1 ) {
+
+              var statusDiv = $( "#success-" + id );
+              statusDiv.slideDown().delay( 3000 ).slideUp();
+              $( btn ).removeClass( 'btn-danger' )
+
+            } else {
+              var statusDiv = $( "#error-" + id );
+              statusDiv.slideDown().delay( 3000 ).slideUp();
+
+            }
+//            gridDetails();
+
+          });
+
+        }
+
+
+		$.getJSON( "<?php echo apiHref; ?>/db/work_positions/",
+				   { 'organization_id' : <?php echo $workers; ?>,
+				     'order' : "name" },
+				   function( positions ) {
+		  workPosList = positions;
+		  $.each( positions, function( index, p ) {
+		    workPosMap[ p.id ] = p.name;
+		  });
+
+		  $.getJSON( "<?php echo apiHref; ?>/db/registrations/count",
+					 { 'event_id' : <?php echo $event[ 'id' ]; ?> },
+					 function( registrationCount ) {
+
+			$.getJSON( "<?php echo apiHref; ?>forms/event/<?php echo $event[ 'id' ]; ?>/?order_by=work_group,run_group,priority",
+					   function( forms ) {
+
+        if ( forms.length == 0 ) {
+          var formDiv = $( "<div/>",
+                   { 'class' : "alert alert-info" } )
+                   .append( "No forms found. Please click 'Run Group Assignment' in the left sidebar and generate entry forms for this event.");
+          $( "#forms-div" ).append( formDiv );
+        } else {
+
+
+			  var group = 0;
+			  var groupChar;
+			  var position = 0;
+
+        var rgBtns = $( "<div/>", { 'class' : "btn-group" } );
+
+        $( "#affix-div" )
+          .append( $( "<hr/>" ) )
+          .append( $( "<div/>" )
+            .append( $( "<p/>" ).html( "Work Groups:" ) )
+            .append( $( "<p/>" ).append( rgBtns ) )
+          );
+
+			  $.each( forms, function( index, form ) {
+
+          if ( form.work_group == 0  ){
+            form.work_group = config[ 'work_order' ][ form.run_group ];
+          }
+
+				  groupChar = String.fromCharCode( parseInt( form.work_group ) + 64 );
+				  runGroupChar = String.fromCharCode( parseInt( form.run_group ) + 64 );
+          var name = form.name_first + ' ' + form.name_last;
+          if ( $.inArray( name, entry_list ) < 0 ) {
+            entry_list.push( name );
+          }
+
+				  if ( parseInt( form.work_group ) != group ) {
+				    $( "#forms-div" )
+					    .append( $( "<div/>", { 'class' : "alert alert-info" } )
+								   .append( $( "<strong/>" ).append( "Worker Assignments for Run Group " + groupChar ) )
+
+								   .append( $( "<div/>", { 'class' : "offset1", 'id' : "grid-" + groupChar } ) )
+							);
+
+            rgBtns
+              .append(
+                $( "<button/>", { 'class' : "btn" } ).append( groupChar )
+                  .on( 'click', function() { moveToGroup( form.work_group ); } )
+              );
+
+					  grid[ groupChar ] = {};
+				  }
+
+          var formDiv = $( "<div/>",
+                 { 'class' : "well well-small",
+                  'id' : "form-" + form.id,
+                  'data-run_group' : form.run_group,
+                  'data-position' : form.position,
+                  'data-name' : form.name_first + ' ' + form.name_last,
+                  'data-class' : form.scca_class_initials,
+                  'data-category' : form.comp_category_name,
+                  'data-priority' : form.priority
+                });
+
+				  var row = $( "<div/>", { 'class' : "row-fluid" } );
+				  var span = $( "<div/>", { 'class' : "span5" } );
+
+          var workGroup = $( "<select/>", { 'class' : "input-mini", 'data-field' : "work_group", 'data-id' : form.id, 'data-run-group' : form.run_group } );
+
+          for( var value = 1; value <= <?php echo $event[ 'run_groups' ]; ?>; value++ ) {
+				    var opt = $( "<option/>", { 'value' : value } ).text( String.fromCharCode( 64+parseInt( value ) ) );
+            if ( form.work_group == value ) { opt.attr( 'selected', "true" ); }
+            workGroup.append( opt );
+				  }
+
+          span.append( workGroup );
+
+				  var workSelect = $( "<select/>",
+                { 'class' : "input-large",
+                  'data-field' : "work_position_id",
+                  'data-id' : form.id,
+                  'data-run_group' : form.run_group } )
+                .on( 'change', function() {
+                    var btn = $( "button[data-id=" + $( this ).data( 'id' ) + "]" );
+                    $( btn ).addClass( 'btn-danger' );
+                });
+
+				  $.each( workPosList, function( index, workPos ) {
+				    var opt = $( "<option/>", { 'value' : workPos.id } ).text( workPos.name );
+				    if ( form.work_position_id == workPos.id ) {
+              opt.attr( 'selected', "true" );
+            } else if  ( ( form.work_position_id == 0 ) &&
+                         ( default_work_id == workPos.id ) ) {
+              opt.attr( 'selected', "true" );
+            }
+
+				    workSelect.append( opt );
+				  });
+				  span.append( workSelect );
+
+				  span.append( $( "<button/>",
+							 { 'class' : "btn", 'data-id' : form.id, 'type' : "button" } )
+							   .html( "Save" )
+							   .on( 'click', function() { updateForm( form.id ); } ) );
+
+				  row.append( span );
+
+          var content = '';
+          if (form.entrant_scca_number) {
+            content = "SCCA #" + form.entrant_scca_number + ", expiration ";
+            if (form.entrant_scca_date == "0000-00-00") {
+              content += "unknown";
+            } else {
+              content += form.entrant_scca_date;
+            }
+            content += '.';
+          } else {
+            content = "No SCCA member information."
+          }
+          var div =
+				    $( "<div/>", {} )
+					    .html( content )
+					    .css ( 'margin-top', "10px" );
+
+				  span.append( div );
+
+				  var div =
+				    $( "<div/>", { 'class' : "alert alert-success hide", 'id' : "success-" + form.id } )
+					    .html( "Work Position Saved." )
+					    .css ( 'margin-top', "10px" );
+				  span.append( div );
+
+				  var div =
+				    $( "<div/>", { 'class' : "alert alert-error hide", 'id' : "error-" + form.id } )
+					    .html( "Error Saving Work Position!" )
+					    .css ( 'margin-top', "10px" );
+				  span.append( div );
+
+				  row.append( span );
+
+				  span = $( "<div/>", { 'class' : "span4" } );
+				  span.append( $( "<p/>" )
+				    .append( String.fromCharCode( parseInt( form.run_group ) + 64 ) )
+				    .append( form.position )
+				    .append( ". " + form.name_first + ' ' + form.name_last ) );
+				  span.append( $( "<p/>" ).append( "Registered: " + form.priority + " / " + registrationCount ) );
+				  span.append( $( "<p/>" ).append( "Comments: " + form.registration_comments ) );
+				  row.append( span );
+
+				  span = $( "<div/>", { 'class' : "span3" } );
+				  var list = $( "<ol/>" ).html( "Work Position Preferences" );
+				  list.append( $( "<li/>" ).html( workPosMap[ form.registration_work_pos_1 ] ) );
+				  list.append( $( "<li/>" ).html( workPosMap[ form.registration_work_pos_2 ] ) );
+				  list.append( $( "<li/>" ).html( workPosMap[ form.registration_work_pos_3 ] ) );
+				  span.append( list );
+				  row.append( span );
+
+				  if ( ( group == form.run_group ) && ( position == form.position ) ) {
+				    formDiv.addClass( 'alert-error' );
+				  }
+
+				  group = form.work_group;
+				  position = form.position;
+
+				  formDiv.append( row );
+
+				  $( "#forms-div" ).append( formDiv );
+			  });
+//			gridDetails();
+
+			  $( "#affix-div" )
+				.append( $( "<p/>" )
+				  .append(
+					$( "<button/>", { 'class' : "btn btn-primary", 'id' : "forms-btn" } ).append( "Assign Workers" )
+					  .on( 'click', function() { submitForm( this ); } )
+				  )
+				);
+
+        $( "#affix-div" )
+          .append( $( "<hr/>" ) )
+          .append( $( "<p/>" )
+            .append( $( "<form/>", { 'class' : "form-search" } )
+              .append( $( "<div/>", { 'class' : "control-group" } )
+                .append( $( "<label/>", { 'class' : "control-label" } ).html( "Find an Entry " ) )
+                .append( $( "<input/>", { 'class' : "input-large search-query", 'placeholder' : "Name", 'type'     : "text" } )
+                  .typeahead({
+                    source: function( query, process ) {
+                      values = entry_list;
+                      values.sort( function( str1, str2 ) {
+                        return ( ( str1 == str2 ) ? 0 : ( ( str1 > str2 ) ? 1 : -1 ) );
+                      });
+                      return values;
+                    },
+                    updater: function( item ) {
+                      $( "#search_results_data" ).empty();
+                      var forms = $( 'div[data-name="' + item + '"]' );
+                      $.each( forms, function( index, form ) {
+
+                        $( "#search_results_data" )
+                           .append( $( "<div/>" )
+                             .append( item + ", " + $( form ).attr( 'data-class' ) + "/" + $( form ).attr( 'data-category' ) + ": " )
+                             .append(
+                                $( "<strong/>" )
+                                  .html( String.fromCharCode( parseInt( $( form ).attr( 'data-run_group' ) ) + 64 ) + $( form ).attr( 'data-position' ) )
+                                  .on( 'click', function() {
+                                    $.scrollTo( $( "#" + $( form ).attr( 'id' ) ), 800, { offset: -60 } );
+                                  })
+                                  .on( 'hover', function() {
+                                    $( this ).css( 'cursor', "pointer" );
+                                  })
+                             )
+                           );
+                      });
+                    $( "#search_results" ).slideDown();
+                      return item;
+                    }
+                  })
+                )
+              )
+            )
+          )
+          .append( $( "<div/>", { 'class' : "alert alert-info hide", 'id' : "search_results" } )
+            .append( $( "<button/>", { 'class' : "close" } )
+                      .html( "&times" )
+                      .on( 'click', function() {
+                        $( this ).parent().slideUp();
+                      })
+            )
+            .append( $( "<div/>", { 'id' : "search_results_data" } ) )
+          );
+
+
+        } // else on check for forms
+			});
+		});
+  });
+
+  </script>
+
+<?php Display::closeBody(); ?>

@@ -1,0 +1,225 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    if ( $user[ 'organization_id' ] != 0 ) {
+      $q = new Query( "organizations" );
+      $org = $q->selectById( $user[ 'organization_id' ] );
+    }
+  }
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+  
+  $q = new Query( "events" );
+  $event = $q->joinOn( "site" )
+             ->joinOn( "organization" )
+             ->timestamps( true )
+             ->selectById( $_SESSION[ 'event_id' ] );
+
+  $q = new Query( "registrations" );  
+  $registration = $q->joinOn( "entrant" )
+                    ->timestamps( true )
+                    ->selectById( $_SESSION[ 'registration_id' ] );
+
+  $q = new Query( "discounts" );  
+  $discount =
+    $q->addWhere( "entrant_id", $user[ 'id' ] )
+      ->addWhere( "organization_id", $event[ 'organization_id' ] )
+      ->select();
+
+  $admin = json_decode( $event[ 'admin' ], true );
+  $tos = ( $event[ 'time_only_reg' ] == 1 );
+
+  if ( !empty( $event[ 'entry_fees' ] ) ) {
+    $entry_fees = json_decode( $event[ 'entry_fees' ], true );
+  } else if ( !empty( $org[ 'entry_fees' ] ) ) {
+    /*
+     *  make sure this stays as $event[ 'organization_entry_fees' ]
+     *  and not $org[ 'entry_fees' ], as the event organization may not be
+     *  the same as the logged in user's organization!
+     */
+    $entry_fees = json_decode( $event[ 'organization_entry_fees' ], true );
+  }
+?>
+<?php if ( !empty( $event ) ) { ?>
+      <div class="page-header">
+        <h3>Event Registration
+          <small>
+            Welcome to registration for the
+            <span class="label label-info"><?php echo $event[ 'organization_name' ]; ?><?php if ( !empty( $event[ 'name' ] ) ) { echo ' '.$event[ 'name' ]; } ?></span>
+            event taking place on
+            <span class="label label-info"><?php echo date( "l, F j, Y", $event[ 'date_ts' ] ); ?></span>
+            at
+            <span class="label label-info"><?php echo $event[ 'site_name' ]; ?></span>.
+          </small>
+        </h3>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span12">
+          <h3 class="alert alert-success">
+            Thank you for registering, <?php echo $registration[ 'entrant_name_first' ]; ?>!
+          </h3>
+          <p>
+            Online registration for this event is open until <?php echo date( "l, F j", $event[ 'registration_close_ts' ] ); ?> at <?php echo date( "g:i a", $event[ 'registration_close_ts' ] ); ?>. If you need to update or cancel your entry before then, you can always return to the <a href="<?php echo baseHref; ?>register/<?php echo $event[ 'id' ]; ?>">event registration page</a>.
+          </p>
+          
+          <div class="row-fluid">
+            <!--
+            <div class="span4">
+              <h4>Event Supplemental Regulations </h4>
+              <div class="well well-small">
+                <p><i class="icon-warning-sign"></i> Please ensure you read and understand the supplemental regulations for <?php echo $event[ 'organization_name' ]; ?> Events.</p>
+                <?php if ( $event[ 'organization_supps_url' ] != "" ) { ?>
+                <p class="centered">
+                  <a class="btn btn-block btn-info" href="<?php echo $event[ 'organization_supps_url' ]; ?>" target="_newwin"><?php echo $event[ 'organization_name' ]; ?> Supplemental Regulations</a>
+                </p>
+                <?php } ?>
+
+                <?php if ( !empty( $event[ 'regulations' ] ) ) { ?>
+                <p><?php echo htmlspecialchars_decode( $event[ 'regulations' ] ); ?></p>
+                <?php } else { ?>
+                <p><?php echo htmlspecialchars_decode( $event[ 'organization_regulations' ] ); ?></p>
+                <?php } ?>
+                <p>By registering online you agree to abide by the stated supplemental regulations or may be asked to leave the event without a refund.</p>
+              </div>
+            </div>
+            -->
+
+<?php if ( isset( $entry_fees ) ) { ?>
+            <div class="span4">
+              <h4>Entry Fees</h4>
+              <div class="well well-small">
+                <table class="table table-bordered table-condensed">
+                  <tr>
+                    <td><strong>SCCA Members</strong></td>
+                    <td><strong>Competition</strong></td>
+                    <?php if ( $tos ) { ?>
+                    <td><strong>Time Only</strong></td>
+                    <?php } ?>
+                  </tr>
+                  <tr>
+                    <td>Registering Online</td>
+                    <td>$ <?php echo $entry_fees[ 'scca_comp_online' ]; ?></td>
+                    <?php if ( $tos ) { ?>
+                    <td>$ <?php echo $entry_fees[ 'scca_to_online' ]; ?></td>
+                    <?php } ?>
+                  </tr>
+                  <tr>
+                    <td>Registering On Site</td>
+                    <td>$ <?php echo $entry_fees[ 'scca_comp_onsite' ]; ?></td>
+                    <?php if ( $tos ) { ?>
+                    <td>$ <?php echo $entry_fees[ 'scca_to_onsite' ]; ?></td>
+                    <?php } ?>
+                  </tr>
+
+                  <tr>
+                    <td><strong>Non SCCA Members</strong></td>
+                    <td><strong>Competition</strong></td>
+                    <?php if ( $tos ) { ?>
+                    <td><strong>Time Only</strong></td>
+                    <?php } ?>
+                  </tr>
+                  <tr>
+                    <td>Registering Online</td>
+                    <td>$ <?php echo $entry_fees[ 'wknd_comp_online' ]; ?></td>
+                    <?php if ( $tos ) { ?>
+                    <td>$ <?php echo $entry_fees[ 'wknd_to_online' ]; ?></td>
+                    <?php } ?>
+                  </tr>
+                  <tr>
+                    <td>Registering On Site</td>
+                    <td>$ <?php echo $entry_fees[ 'wknd_comp_onsite' ]; ?></td>
+                    <?php if ( $tos ) { ?>
+                    <td>$ <?php echo $entry_fees[ 'wknd_to_onsite' ]; ?></td>
+                    <?php } ?>
+                  </tr>
+                </table>
+                <div>
+                  <p>
+                    <strong>
+                      Your Entry Fee: <i class="icon-usd"></i> <?php echo number_format( $registration[ 'entry_fee' ], 2 ); ?>
+                    </strong>
+                  </p>
+                  <p>
+                    <?php if ( $entry_fees['online_conditional'] == 1 ) { ?>
+                    Entry fee above valid only if paid online prior to the close of registration
+                    <?php } ?>
+                  </p>
+                  <p>
+                  <ul>
+                    <li>
+                      SCCA Membership:
+                      <?php if ( $registration[ 'entrant_scca_status' ] == 1  ) { ?>
+                      <span class="text-success">Verified</span>
+                      <?php } else if ( $registration[ 'entrant_scca_number' ] == "" ) { ?>
+                      No membership number entered.
+                      <?php } else { ?>
+                      <span class="text-warning">Could not verify!</span>
+                      <?php } ?>
+                    </li>
+                    <?php if ( $tos ) { ?>
+                    <li>
+                      Time Only Registration:
+                      <?php if ( $registration[ 'time_only_reg' ] == 1 ) { ?>
+                      Yes
+                      <?php } else { ?>
+                      No
+                      <?php } ?>
+                    </li>
+                    <?php } ?>
+                </div>
+              </div>
+            </div>
+<?php } ?>
+
+<?php if ( !empty( $event[ 'payment_info' ] ) ) { ?>
+            <div class="span4">
+              <h4>Payment Information</h4>
+              <div class="well well-small">
+		            <p id="payment_info-p"><?php echo htmlspecialchars_decode( preg_replace( "/\\\\/", "", $event[ 'payment_info' ] ) ); ?></p>
+              </div>
+            </div>
+<?php } else if ( !empty( $event[ 'organization_payment_info' ] ) ) { ?>
+            <div class="span4">
+              <h4>Payment Information</h4>
+              <div class="well well-small">
+		            <p id="payment_info-p"><?php echo htmlspecialchars_decode( preg_replace( "/\\\\/", "", $event[ 'organization_payment_info' ] ) ); ?></p>
+              </div>
+            </div>
+<?php } ?>
+<!--
+            <div class="span3">
+              <div class="well well-small">
+                <h4>Novice Information</h4>
+              </div>
+            </div>
+-->
+
+          </div>
+
+        </div>
+      </div>
+
+
+<?php } else { ?>
+      <div class="row-fluid"> 
+        <div class="span12">
+          <div class="alert alert-error">
+            Whoops... something went wrong. Please try again or contact a system administrator.
+          </div>
+        </div>
+      </div>
+<?php } ?>
+<?php Display::closeContainer(); ?>
+
+        <script type="text/javascript">
+        </script>
+
+<?php Display::closeBody(); ?>

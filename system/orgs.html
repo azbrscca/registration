@@ -1,0 +1,436 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  $q = new Query( "event_types" );
+  $event_types = 
+    $q->addOrder( "name" )
+      ->select();
+?>
+      <div class="navbar">
+        <div class="navbar-inner">
+          <p class="navbar-text pull-left">
+            Organizations
+          </p>
+          <ul class="nav">
+            <li class="divider-vertical"></li>
+          </ul>
+          <form class="navbar-form pull-left">
+            <select class="span4" id="organization_id">
+            </select>
+
+            <button class="btn" id="add-btn" type="button"><i class="icon-plus"></i></button>
+              
+          </form>
+          <ul class="nav">
+            <li class="divider-vertical"></li>
+          </ul>
+
+        </div>
+      </div>
+
+      <form class="form-horizontal hide" id="organization-form" name="organization-form">
+        <input id="id" name="id" type="hidden" value="0" />
+
+        <div class="row-fluid">
+          <div class="span6">
+    
+            <div class="control-group" id="name-cg">
+              <label class="control-label" for="name">Name</label>
+              <div class="controls">
+              <input class="input-xlarge" id="name" name="name" type="text"/>
+              </div>
+            </div>
+      
+            <div class="control-group" id="shortname-cg">
+              <label class="control-label" for="shortname">Short Name</label>
+              <div class="controls">
+              <input class="input-small" id="shortname" maxlength="5" name="shortname" type="text" />
+              <span class="label label-info">Required</span>
+              </div>
+            </div>
+      
+            <div class="control-group" id="url-cg">
+              <label class="control-label" for="url">Website Address</label>
+              <div class="controls">
+              <input class="input-xlarge" id="url" name="url" type="text" />
+              <span class="label label-info">Required</span>
+              </div>
+            </div>
+      
+            <div class="control-group" id="contact_email-cg">
+              <label class="control-label" for="contact_email">Contact Email</label>
+              <div class="controls">
+                <input class="input-xlarge" id="contact_email" name="contact_email" type="text" />
+                <span class="label label-info">Required</span>
+              </div>
+            </div>
+      
+            <div class="control-group" id="logo_url-cg">
+              <label class="control-label" for="logo_url">Logo URL</label>
+              <div class="controls">
+              <input class="input-xlarge" id="logo_url" name="logo_url" type="text" />
+              </div>
+            </div>
+      
+            <div class="control-group" id="supps_url-cg">
+              <label class="control-label" for="supps_url">Supplemental Regulations URL</label>
+              <div class="controls">
+              <input class="input-xlarge" id="supps_url" name="supps_url" type="text" />
+              </div>
+            </div>
+          </div>
+      
+          <div class="span6">
+
+            <div class="control-group" id="event_types-cg">
+              <label class="control-label" for="event_types">Event Types</label>
+              <div class="controls">
+                <select class="input-large" id="event_types", name="event_types[]" multiple size="2">
+                <?php foreach( $event_types as $event_type ) { ?>
+                  <option value="<?php echo $event_type[ 'id' ]; ?>"><?php echo $event_type[ 'name' ]; ?></option>
+                <?php } ?>
+                </select>
+                <span class="label label-info">Required</span>
+              </div>
+            </div>
+
+            <div class="control-group" id="api_access-cg">
+              <label class="control-label" for="api_access">API Access</label>
+              <div class="controls">
+                <select class="input-small" id="privs_apiaccess" name="privileges[apiaccess]">
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="control-group" id="privs_configuration-cg">
+              <label class="control-label" for="privs_configuration">Enable Event Configuration</label>
+              <div class="controls">
+                <select class="input-small" id="privs_configuration" name="privileges[configuration]">
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="control-group" id="privs_results-cg">
+              <label class="control-label" for="privs_results">Enable Results</label>
+              <div class="controls">
+                 <select class="input-small" id="privs_results" name="privileges[results]">
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </div>
+            </div>
+
+      	    <div class="control-group" id="privs_results_method-cg">
+	            <label class="control-label" for=privs_results_method">Default Results Method</label>
+	            <div class="controls">
+	              <select class="input-xlarge" id="privs_results_method" name="privileges[results_method]">
+		              <option value="overall_pax">Fastest Run, Overall PAX</option>
+		              <option value="pax_in_category">Fastest Run, PAX in Category</option>
+		              <option value="total_time">All Runs, Total Time</option>
+		            </select>
+	            </div>
+	          </div>
+
+	          <div class="control-group" id="privs_results_data-cg">
+	            <label class="control-label" for="privs_results_data">Results Data Entered</label>
+	            <div class="controls">
+	              <select class="input-xlarge" id="privs_results_data" name="privileges[results_data]">
+      		        <option value="all_times">All Times</option>
+		              <option value="fast_time">Fastest Time</option>
+      		      </select>
+	            </div>
+	          </div>
+
+	          <div class="control-group" id="privs_default_runs-cg">
+	            <label class="control-label" for="privs_default_runs">Default Run Count</label>
+	            <div class="controls">
+	              <input class="input-mini" id="privs_default_runs" name="privileges[default_runs]" max_length="2" type="text" />
+	            </div>
+	          </div>
+
+          </div>
+        </div>
+
+        <div class="row-fluid">
+          <div class="span12">
+            <div class="alert alert-error hide" id="error-div">
+            </div>
+            <div class="alert alert-success hide" id="success-div">
+              Organization information has been saved.
+            </div>
+      
+            <div class="form-actions">
+              <button class="btn btn-primary" id="save-btn" type="button">Save Changes</button>
+              <button class="btn" id="clear-btn" type="button">Clear Changes</button>
+            </div>
+  
+          </div>
+        </div>
+          
+      </form>
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+        var organizations;
+
+        $( "#privs_results" ).change( function() {
+          if ( $( this ).val() == "false" ) {
+            $( "#privs_results_data-cg" ).slideUp();
+            $( "#privs_results_method-cg" ).slideUp();
+            $( "#privs_default_runs-cg" ).slideUp();
+          } else {
+            $( "#privs_results_data-cg" ).slideDown();
+            $( "#privs_results_method-cg" ).slideDown();
+            $( "#privs_default_runs-cg" ).slideDown();
+          }
+      
+        });
+      
+        $( "#privs_results_data" ).change( function() {
+          if ( ( $( this ).val() == "all_times" ) &&
+                ( $( "#privs_results" ).val() == "true" ) ) {
+            $( "#privs_default_runs-cg" ).slideDown();
+          } else {
+            $( "#privs_default_runs" ).val( "1" );
+            $( "#privs_default_runs-cg" ).slideUp();
+          }
+        });
+
+        function getOrganizations() {
+        
+          var selected = $( "#id" ).val();
+
+          $( "#organization_id" ).empty();
+          $( "#organization_id" ).append(
+            $( "<option/>", { value : 0 } ).text( "Select a Organization" )
+           );
+       
+          $.getJSON( "<?php echo apiHref; ?>/db/organizations/",
+                     { 'order' : "name" },
+                     function( json ) {
+            organizations = json;
+
+            $.each( organizations, function( index, organization ) {
+
+              var option = $( "<option/>", { value : organization.id } ).text( organization.name )
+              if ( selected == organization.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#organization_id" ).append( option );
+            });
+          });
+        }
+        
+        function getOrganization( id ) {
+        
+          var organization;
+          $.each( organizations, function( index, item ) {
+            if ( item.id == id ) {
+              organization = item;
+            }            
+          });
+
+          if ( $( "#organization-form" ).is( ":hidden" ) ) {
+            $( "#organization-form" ).slideDown();
+          }
+
+          $.each( organization, function( key, val ) {
+            if ( key == "privileges" ) {
+              var privs = $.parseJSON( val );
+              $.each( privs, function( privKey, privVal ) {
+                 $( "#privs_" + privKey ).val( privVal.toString() );
+              });
+              $( "#privs_results" ).trigger( "change" );
+              $( "#privs_results_data" ).trigger( "change" );
+            } else if ( key == "event_types" ) {
+              var event_types = $.parseJSON( val );
+	      
+              $( "#event_types option").each( function() {
+                if ( event_types.indexOf( $( this ).val() ) == -1 ) {;
+                  $( this ).removeAttr( "selected" );
+                } else {
+                  $( this ).attr( "selected", "selected" );
+                }
+              });
+            } else if ( $( "#" + key ).length > 0 ) {
+              $( "#" + key ).val( val );
+            }
+          });
+        }        
+          
+        getOrganizations();
+
+    var requiredIds = Array();
+    $( ".control-group" ).each( function() {
+      var id;
+      $( this ).find( ".control-label" ).each( function() {
+      id = $( this ).attr( 'for' );
+      });
+    
+      var required = false;
+      $( this ).find( ".label" ).each( function() {
+      if ( $( this ).html().indexOf( 'Required' ) !== false ) {
+        requiredIds[ requiredIds.length ] = id;
+      }
+      });
+    });
+
+    $( ".btn" ).click( function() {
+      $( "#error-div" ).slideUp();
+      $( "#success-div" ).slideUp();
+      if ( $( this ).attr( 'id' ) != "delete-btn" ) {
+      $( "#delete-btn" ).removeClass( 'btn-danger' ).html( 'Delete' );
+      }
+    }); 
+
+    $( "#add-btn" ).click( function () {
+    
+      $( "#name" ).val( "" );
+      $( "#shortname" ).val( "" );
+      $( "#url" ).val( "" );
+      $( "#contact_email" ).val( "" );
+      $( "#logo_url" ).val( "" );
+      $( "#supps_url" ).val( "" );
+      
+      if ( $( "#organization-form" ).is( ":hidden" ) ) {
+      $( "#organization-form" ).slideDown();
+      }
+      
+      $( "#delete-btn" ).attr( 'disabled', "true" );
+    });
+
+    $( "#clear-btn" ).click( function() {
+      getOrganization( $( "#id" ).val() );
+    });
+
+    $( "#delete-btn" ).click( function() {
+
+      if ( $( this ).hasClass( 'btn-danger' ) ) {
+
+      $( this ).removeClass( 'btn-danger' ).html( 'Delete' );
+      var id = $( "#id" ).val();
+      $.post( "<?php echo apiHref; ?>db/organizations/" + $( "#id" ).val(),
+        { '_method' : "delete" },
+        function( result ) {
+        
+        if ( result == 1 ) {
+        $( "#organization-form" ).slideUp();
+        getOrganizations();
+        $( "#success-div" ).html( "Organization deleted!" );
+        $( "#success-div" ).slideDown();
+        } else {
+        $( "#error-div" ).html( "Whoops, something went wrong. We were unable to delete that item." );
+        $( "#error-div" ).slideDown();
+        }
+      });    
+
+      } else {
+      $( this ).addClass( 'btn-danger' ).html( 'Permanently delete this organization?' );
+      }
+    });
+
+        $( "#organization_id" ).change( function() {
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+          $( "#delete-btn" ).removeClass( 'btn-danger' ).html( 'Delete' );
+          $( "#delete-btn" ).removeAttr( 'disabled' );
+
+          if ( parseInt( $( "#organization_id" ).val() ) == 0 ) {
+            $( "#organization-form" ).slideUp();
+          } else {
+            getOrganization( $( this ).val() );
+          }
+        });
+
+        $( "#save-btn" ).click( function() {
+
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+
+          var errors = 0;
+          $.each( requiredIds, function( index, field ) {              
+
+            if ( ( $( "#" + field ).val() == null ) ||
+               ( $( "#" + field ).val().length == 0 ) ) {
+              $( "#" + field + "-cg" ).addClass( "error" );
+              errors++;
+            } else {
+              $( "#" + field + "-cg" ).removeClass( "error" );
+            }
+          });
+
+          var op = ( $( "#id" ).val() == 0 ) ? "insert" : "update";
+
+          if ( errors == 0 ) {
+      
+            if ( $( "#id" ).val() == 0 ) {
+              // insert
+              $.post( "<?php echo apiHref; ?>db/organizations/",
+                      $( "#organization-form" ).serialize(),
+                      function( organization ) {
+
+                if ( organization.id > 0 ) {
+
+                  $( "#id" ).val( organization.id );
+                  $( "#delete-btn" ).removeAttr( 'disabled' );
+                  $( "#success-div" ).html( "New organization saved!" );
+                  $( "#success-div" ).slideDown();
+                  getOrganizations();
+
+                } else {
+                 $( "#error-div" ).html( "Whoops, something went wrong. We were unable to add the new organization." );
+                  $( "#error-div" ).slideDown();
+                }
+              });
+
+            } else {
+              // update
+              $.post( "<?php echo apiHref; ?>db/organizations/" + $( "#id" ).val() + "/",
+                      $( "#organization-form" ).serialize(),
+                      function( organization ) {
+
+                if ( organization.updated == 1 ) {
+                  getOrganizations();
+                  $( "#success-div" ).html( "Your changes have been saved." );
+                  $( "#success-div" ).slideDown();
+          
+                } else {
+                  $( "#error-div" ).html( "Whoops, something went wrong. We were unable to save your changes." );
+                  $( "#error-div" ).slideDown();
+                }
+              });
+            }
+
+          } else {
+            $( "#error-div" ).html( "Some required fields are empty, please complete them and try again." );
+            $( "#error-div" ).slideDown();
+          }
+
+          return false;
+        });
+
+      </script>
+
+<?php Display::closeBody(); ?>

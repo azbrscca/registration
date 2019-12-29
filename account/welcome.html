@@ -1,0 +1,56 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  
+  if ( empty( $_POST ) ) {
+    header( "Location: register.html" );
+  } else {
+    $args = Functions::cleanArray( $_POST );
+    
+    $id = intval( $args[ 'id' ] );
+    unset( $args[ 'id' ] );
+
+    $q = new Query( "entrants" );
+
+    if ( $args[ 'scca_date' ] == "" ) {
+      $args[ 'scca_date' ] = "0000-00-00";
+    }
+
+    if ( $id == 0 ) {
+      // new user
+      $user = $args;
+      $user[ 'password' ] = sha1( $args[ 'password' ] );
+      $user[ 'id' ] = $q->insertNew( $user );
+    } else {
+      $user = $q->selectById( $id );
+      if ( empty( $user[ 'username' ] ) ) {
+        $user[ 'username' ] = $args[ 'username' ];
+        $user[ 'password' ] = sha1( $args[ 'password' ] );
+        $user[ 'dob' ] = $args[ 'dob' ];
+        $updated = $q->updateById( $user );
+      }
+    
+    }
+  }
+  
+  Display::openBody();
+  Display::navBar( array(), array(), false );
+  Display::openContainer();
+
+?>
+      <div class="row-fluid">
+        <div class="span12">
+          <div class="hero-unit">
+            <h3>Your account is now active!</h3>
+<!--             <meta http-equiv="refresh" content="8;url=<?php echo baseHref; ?>/index.html"> -->
+             You will be redirected back to the front page in a few seconds where you can login and start registering for events. Don't want to wait? <a href="<?php echo baseHref; ?>index.html">Click here</a>.
+          </div>
+        </div>
+      </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+      </script>
+
+<?php Display::closeBody(); ?>

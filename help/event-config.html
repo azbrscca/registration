@@ -1,0 +1,250 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  
+  Display::openBody();
+  Display::navBar( array(), array(), false );
+  Display::openContainer();
+
+?>
+      <div class="page-header">
+        <h3>Help
+          <small>
+            A walkthrough of configuring an event.
+          </small>
+        </h3>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span4">
+          <h4>1. Front Page</h3>
+					<div class="well well-small">
+						<p>Once you have logged in, click the name of your organization ('AZ Solo' in the screenshot) then click 'Events' from the dropdown.</p>
+					</div>
+        </div>
+        <div class="span8">
+          <ul class="thumbnails">
+            <li class="span12">
+              <div class="thumbnail">
+                <img alt="" src="screenshots/event-config/001.png" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span4">
+          <h4>2. Events Listing</h3>
+					<div class="well well-small">
+					  <p>Find the event you would like to configure and click the 'Action' button'. From the dropdown that appears click 'Configure'</p>
+					</div>
+        </div>
+        <div class="span8">
+          <ul class="thumbnails">
+            <li class="span12">
+              <div class="thumbnail">
+                <img alt="" src="screenshots/event-config/002.png" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span4">
+          <h4>3. Run Group Structure</h3>
+					<div class="well well-small">
+					  <p>Setting the Run Group Structure is the first step of the actual configuration. Near the top of the page, under the menu bar, there is a secondary navbar that tells you what event you are working with and shows the number of entries for the event. This bar is present during all of the configuration steps. On the left side of the page are the configuration steps, with highlighting on the step currently being performed.</p>
+					  <p>To complete this step, select the number of groups desired and the maximum desired group size then click the blue 'Save Changes' button. A green bar will provide confirmation of the save. Once this step is completed, click on 'Run / Work Order' in the list on the left.
+					</div>
+        </div>
+        <div class="span8">
+          <ul class="thumbnails">
+            <li class="span12">
+              <div class="thumbnail">
+                <img alt="" src="screenshots/event-config/003.png" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span4">
+          <h4>4. Run / Work Order</h3>
+					<div class="well well-small">
+					  <p>For each run group, select a work group and select the entires that are allowed in each group. Each group can individually be assigned to allow Competition and Time Only runs or can be restricted to Competition <em>or</em> only Time Only entires. Once all selections have been made, click the blue 'Save Changes' button. A green bar will provide confirmation of the save. Once this step is completed, click on 'Competition Category Groups' in the list on the left.
+					  </p>
+					</div>
+        </div>
+        <div class="span8">
+          <ul class="thumbnails">
+            <li class="span12">
+              <div class="thumbnail">
+                <img alt="" src="screenshots/event-config/004.png" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span4">
+          <h4>5. Competition Category Groups</h3>
+					<div class="well well-small">
+					  <p>
+					    If your organization has any run groups that <em>do not</em> allow run group choice, this is the step where you will assign those classes and categories to specific run groups. Any entires that match these classes and categories will be not able to change groups during the Run Group Assignment step.
+					  </p>
+					  <p>
+					    After selecting a run group for each category - class combination, click the blue 'Save Changes' button. A green bar will provide confirmation of the save. Once this step is completed, click on 'Run Group Assignment' in the list on the left.
+					</div>
+        </div>
+        <div class="span8">
+          <ul class="thumbnails">
+            <li class="span12">
+              <div class="thumbnail">
+                <img alt="" src="screenshots/event-config/005.png" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span4">
+          <h4>6. Run Group Assignment</h3>
+					<div class="well well-small">
+					  <p>
+					  	Upon the first visit to this step for an event, you will see the blue bar displayed as the screenshot shows. Click the blue 'Generate Forms' button. This will create entry forms for the event, and assign run order based on the configuration provided in the previous steps, entrants preferences, and the order in which entrants registered for the event.
+					  </p>
+					</div>
+        </div>
+        <div class="span8">
+          <ul class="thumbnails">
+            <li class="span12">
+              <div class="thumbnail">
+                <img alt="" src="screenshots/event-config/006.png" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span4">
+          <h4>6. Run Group Assignment</h3>
+					<div class="well well-small">
+					  <p>
+					  	Next comes any manual assignment of run order. On the left side of the page, there are now buttons for each Run Group. Clicking these will scroll the page to the top of the indicated Run Group. The blue 'Regenerate Forms' button will re-run the automated run group assignment and will erase and manual changes you have made. There is also a 'Scroll On Move' button that we will come back to in a moment.
+					  </p>
+					  <p>
+					  	At the top of each run group there is yellow bar that indicates how many positions are filled in that Run Group and what positions are open in that Run Group.
+					  </p>
+					  <p>Each entry has a drop down with their run group and position. If the entry is for a category - class that does not have run group choice, the run group dropdown is disabled. To move an entry, select the desired new run group and/or position and click 'Move'. The entry will be immediately moved, both on screen and in the database, so no additional save action is required. If the 'Scroll On Move' button is active (green), the screen will scroll to the position that the entry was moved to. For example, if you move someone from A1 to C15 and 'Scroll On Move' is active (green), the entry will be relocated and the page will automatically scroll to entry C15. If 'Scroll On Move' is inactive (grey), the screen will not follow entries when they are moved. To toggle 'Scroll On Move' on or off, click the button in the lower left of the screen.
+					  </p>
+					  <p>
+					    If more than one entry is assigned the same run group and position, the conflicting entry or entries will be highlighted in red.
+					  </p>
+					  <div class="alert alert-info">
+					    As previously mentioned, the run group order is 'what you see is what you get'. There is no save button to look for. Once you click the 'Move' button on an entry, their new position has automatically been saved.
+					  </div>
+					  <p>
+					    Once you have made all the necessary manual changes, click 'Work Position Assignment' in the list on the left side.
+					  </p>
+					</div>
+        </div>
+        <div class="span8">
+          <div class="row-fluid">
+            <div class="span12">
+							<ul class="thumbnails">
+								<li class="span12">
+									<div class="thumbnail">
+										<img alt="" src="screenshots/event-config/007.png" />
+									</div>
+								</li>
+							</ul>
+						</div>
+					</div>
+          <div class="row-fluid">
+            <div class="span12">
+							<ul class="thumbnails">
+								<li class="span12">
+									<div class="thumbnail">
+										<img alt="" src="screenshots/event-config/008.png" />
+									</div>
+								</li>
+							</ul>
+						</div>
+					</div>
+        </div>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span4">
+          <h4>7. Work Position Assignment</h3>
+					<div class="well well-small">
+					  <p>
+					    Upon the first visit to the Work Position Assignment step for an event, no positions will be assigned. To run the automated work assignment click the blue 'Assign Workers' button the lower left of the screen. This will assign work positions order based entrants preferences, the order in which entrants registered for the event, and the attributes of the work positions (how many to allow in each group, for example).
+					  </p>
+					  <p>
+					    Whenever you click the 'Assign Worker' button, even the first time, a wanring message will be displayed.
+					  </p>
+						<ul class="thumbnails">
+							<li class="span12">
+								<div class="thumbnail">
+									<img alt="" src="screenshots/event-config/011.png" />
+								</div>
+							</li>
+						</ul>
+						<p>
+							 This is a reminder that any manual changes - even saved changes - are destroyed when the automated work assignment is run. You must click the 'Assign Workers' button a second time to confirm your selection. If you click 'Assign Workers' accidentally, simply click the 'x' in the upper right corner of the red message block and 'Assign Worker' <em>will not run</em>.
+						</p>
+					  <p>
+					    As with the 'Run Group Assignment' page, there are buttons for eachRun Group on the left side of the page. Clicking  these will scroll the page to the top of the indicated Run Group.
+					  </p>
+					  <p>
+					    Also in keeping with similarity to the 'Run Group Assignment' page, work positions are 'what you see is what you get'. To change an entrant's assignment, simply pick the work position from the drop down for that entrant and click 'Save'. A green bar will appear for approximately 5 seconds confirming the save. Once you have made all the necessary manual changes, click 'Download Data' in the list on the left side.
+					  </p>
+					</div>
+        </div>
+        <div class="span8">
+          <ul class="thumbnails">
+            <li class="span12">
+              <div class="thumbnail">
+                <img alt="" src="screenshots/event-config/009.png" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span4">
+          <h4>8. Download Data</h3>
+					<div class="well well-small">
+					  <p>
+					    Last step! Here is where you download the spreadsheet or all your event data as well as generate entry forms that you can printed directly from your browser. Select the desired 'Form Type' and 'Form Ordering' (most clubs use the default options). Click the blue 'Generate Spreadsheet' button and the site will provide a Microsoft Excel spreadsheet with entry data and printable pages for on site announcing, worker assignment, timing & scoring, and scoreboard. Click the blue 'Generate Forms' button and the site will do exactly that! Entry forms will be displayed in your browser that you can print or save.
+					  </p>
+					  <div class="alert">
+					    Microsoft Internet Explorer is <strong>not</strong> recommended for generating forms as there are some known formatting problems. Please use Firefox, Chrome, or Safari for best results. Also, if printing half page forms, be sure you have set your Page Orientation to Landscape in your browser page Setup settings and that you select 2 Pages per Sheet in your Print Layout settings. Use of your browser's built in print preview function is highly recommended to ensure your settings are correct before you print.
+					  </div>
+					</div>
+        </div>
+        <div class="span8">
+          <ul class="thumbnails">
+            <li class="span12">
+              <div class="thumbnail">
+                <img alt="" src="screenshots/event-config/012.png" />
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+      
+<?php Display::closeContainer(); ?>
+
+        <script type="text/javascript">
+        </script>
+
+<?php Display::closeBody(); ?>

@@ -1,0 +1,63 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    if ( $user[ 'organization_id' ] != 0 ) {
+      $q = new Query( "organizations" );
+      $org = $q->selectById( $user[ 'organization_id' ] );
+    }
+  }
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();  
+
+  $q = new Query( "events" );
+  $event = $q->joinOn( "site" )
+             ->joinOn( "organization" )
+             ->timestamps( true )
+             ->selectById( $_SESSION[ 'event_id' ] );
+?>
+<?php if ( !empty( $event ) ) { ?>
+      <div class="page-header">
+        <h3>Event Registration
+          <small>
+            Welcome to registration for the
+            <span class="label label-info"><?php echo $event[ 'organization_name' ]; ?><?php if ( !empty( $event[ 'name' ] ) ) { echo ' '.$event[ 'name' ]; } ?></span>
+            event taking place on
+            <span class="label label-info"><?php echo date( "l, F j, Y", $event[ 'date_ts' ] ); ?></span>
+            at
+            <span class="label label-info"><?php echo $event[ 'site_name' ]; ?></span>.
+          </small>
+        </h3>
+      </div>
+
+      <div class="row-fluid"> 
+        <div class="span12">
+          <h3 class="alert alert-danger">
+            Your registration has been canceled.
+          </h3>
+        </div>
+      </div>
+
+
+<?php } else { ?>
+      <div class="row-fluid"> 
+        <div class="span12">
+          <div class="alert alert-error">
+            Ahhh... something went wrong. Whoops.
+          </div>
+        </div>
+      </div>
+<?php } ?>
+<?php Display::closeContainer(); ?>
+
+        <script type="text/javascript">
+        </script>
+
+<?php Display::closeBody(); ?>

@@ -1,0 +1,133 @@
+<?php
+  require_once "common/Common.php";
+  require_once "db/Query.php";
+
+  if ( !empty( $_POST ) ) {
+
+    if ( !empty( $_SERVER[ 'HTTP_REFERER' ] ) &&
+         ( strpos( $_SERVER[ 'HTTP_REFERER' ], baseHref ) == 0 ) &&
+         ( $_SERVER[ 'HTTP_REFERER' ] != baseHref."login.html" ) ) {
+      $_SESSION[ 'referer' ] = $_SERVER[ 'HTTP_REFERER' ];
+    }
+
+    $args = Functions::cleanArray( $_POST );
+
+   if ( empty( $args[ 'username' ] ) ) {
+      $args[ 'error' ] = "No username specified.";
+
+    } else if ( empty( $args[ 'password' ] ) ) {
+      $args[ 'error' ] = "No password specified.";
+
+    } else {
+
+      setcookie( "registration-username", $args[ 'username' ], time() + 60*60*24*365.25, "/" );
+
+      $q = new Query( "entrants" );
+      $user = $q->addWhere( "username", $args[ 'username' ] )->selectOne();
+      if ( ( $user == null ) ||
+           ( $user[ 'password' ] != $args[ 'password' ] ) ) {
+        $args[ 'error' ] = "Invalid username or password.";
+      } else {
+/*
+        if ( !empty( $args[ 'remember_me' ] ) && ( $args[ 'remember_me' ] == 1 ) ) {
+        
+          $time = time();
+          $cookieData = array(
+            'u' => $user[ 'id' ],
+            's' => $time,
+            'h' => sha1( $user[ 'username' ].$user[ 'password' ].$time )
+          );
+          setcookie( "registration-login", json_encode( $cookieData ), time() + 60*60*24*30, "/" );
+        } else {
+          setcookie( "registration-login", "", time() - 60*60*6, "/" );
+        }
+*/
+        $q = new Query( "sessions" );
+        $sessions = 
+          $q->addWhere( 'entrant_id', $user[ 'id' ] )
+            ->addWhere( 'remote_addr', $_SERVER[ 'REMOTE_ADDR' ] )
+            ->only( 'id' )
+            ->select();
+      
+        $sessions = $q->select();
+        foreach( $sessions as $session ) {
+          $q = new Query( "sessions" );
+          $q->deleteById( $session[ 'id' ] );
+        }
+
+        $session = array(
+          'entrant_id' => $user[ 'id' ],
+          'remote_addr' => $_SERVER[ 'REMOTE_ADDR' ],
+          'salt' => Functions::randomString(),
+          'session_id' => session_id()
+        );
+        $q = new Query( "sessions" );
+        if ( $q->insertNew( $session ) > 0 )  {
+          $_SESSION[ 'user_id' ] = $user[ 'id' ];
+          $_SESSION[ 'data' ] = sha1( json_encode( $session ) );
+        } else {
+          $args[ 'error' ] = "session insert error";
+        }
+      }
+    }
+  }  
+  
+  if ( Session::checkLogin() ) {
+    $referer = ( empty( $_SESSION[ 'referer' ] ) ) ? baseHref : $_SESSION[ 'referer' ];
+    unset( $_SESSION[ 'referer' ] );
+?>
+            <meta http-equiv="refresh" content="0;url=<?php echo $referer; ?>" />
+<?php 
+  } else {
+
+    Display::openBody();
+    Display::navBar( array(), array(), false );
+    Display::openContainer();
+
+    $username = "";
+    if ( !empty( $args[ 'username' ] ) ) {
+      $username = $args[ 'username' ];
+    } else if ( !empty( $_COOKIE[ 'registration-username' ] ) ) {
+      $username = $_COOKIE[ 'registration-username' ];
+    }
+?>
+      <div class="row-fluid"> 
+        <div class="span12">
+<?php 
+?>
+            <form action="<?php echo baseHref; ?>login.html" class="form-horizontal" id="login-form" method="post" name="login-form">
+              <div class="control-group">
+                <label class="control-label" for="username">Username</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="username" name="username" placeholder="Username" type="text" value="<?php echo $username; ?>" />
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label class="control-label" for="password">Password</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="password" placeholder="Password" type="password" />
+                  <input id="sha1-password" name="password" type="hidden" />
+                </div>
+              </div>
+<?php if ( empty( $args[ 'error' ] ) ) { ?>
+	            <div class="alert alert-error hide" id="login-error"></div>
+<?php } else { ?>
+	            <div class="alert alert-error" id="login-error">
+                <?php echo $args[ 'error' ]; ?>
+              </div>
+<?php } ?>
+              <div class="control-group">
+                <div class="controls">
+                  <button id="login-btn" class="btn btn-primary" type="submit">Login</button>
+		              <a href="<?php echo baseHref; ?>account/register.html" class="btn" type="button">Register</a>
+                </div>
+              </div>
+
+            </form>
+        </div>
+      </div> <!-- row -->
+
+<?php Display::closeContainer( false ); ?>
+<?php Display::closeBody(); ?>
+<?php } ?>

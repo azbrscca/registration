@@ -1,0 +1,103 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  
+  require_once "common.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  orgNavbar( $org );  
+
+?>
+      <div class="row-fluid">
+        <div class="span6">
+
+          <form class="form-horizontal" id="apikey-form" name="apikey-form">
+            <fieldset>
+
+              <div class="control-group" id="name-cg">
+                <label class="control-label" for="name">Name</label>
+                <div class="controls">
+                  <span class="input-xlarge uneditable-input" id="name">
+                    <?php echo $org[ 'name' ]; ?>
+                  </span>
+                </div>
+              </div>
+
+              <div class="control-group" id="id-cg">
+                <label class="control-label" for="id">Organization ID</label>
+                <div class="controls">
+                  <span class="input-small uneditable-input" id="name">
+                    <?php echo $org[ 'id' ]; ?>
+                  </span>
+                </div>
+              </div>
+
+              <div class="control-group" id="shortname-cg">
+                <label class="control-label" for="shortname">API Key</label>
+                <div class="controls">
+                  <span class="input-xlarge uneditable-input" id="apikey">
+                    <?php echo $org[ 'apikey' ]; ?>
+                  </span>
+                </div>
+              </div>
+
+              <div class="alert alert-error hide" id="error-div">
+                Something went wrong and we were uable to update the API key. Please try again.
+              </div>
+              <div class="alert alert-success hide" id="success-div">
+                Success! The API key has been updated. Please remember to update the key wherever you access the API.
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="refresh-btn" type="submit">Refresh API Key</button>
+              </div>
+ 
+            </fieldset>
+          </form>
+
+        </div>
+        <div class="span6">
+          <div class="page_header">
+            <h4>How to Use The API Key</h4>
+          </div>
+        </div>
+
+      </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+        $( "#apikey-form" ).submit( function(){
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+          $.post( "<?php echo apiHref; ?>organizations/<?php echo $org[ 'id' ]; ?>/apikey/",
+                  function( json ) {
+            if ( json.updated == 1 ) {
+              $( "#success-div" ).slideDown();
+              $( "#apikey" ).html( json.apikey );
+            } else {
+              $( "#error-div" ).slideDown();
+            }
+          })
+
+          return false;
+        });
+        
+      </script>
+
+<?php Display::closeBody(); ?>

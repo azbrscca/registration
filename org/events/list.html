@@ -1,0 +1,268 @@
+<?php
+  require_once "../../common/Common.php";
+  require_once "../../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  $privs = json_decode( $org[ 'privileges' ], true );
+?>
+        <div class="navbar">
+          <div class="navbar-inner">          
+            <p class="navbar-text pull-left">
+              <?php echo $org[ 'name' ]; ?> Events: Entry List 
+            </p>
+            <ul class="nav">
+              <li class="divider-vertical"></li>
+            </ul>
+            <form class="navbar-form pull-left" id="navbar-form" name="navbar-form">
+              <select class="input-xlarge" id="event_id">
+              </select>              
+
+              <select class="input-large" id="order" name="order">
+                <option value="date_created">Registration Date/Time</option>
+                <option value="entrant_name">Entrant Name (Last,First)</option>
+              </select>              
+
+              <select class="input-large" id="list">
+                <option value="names">Names Only</option>
+                <option value="email">Email List</option>
+                <option value="details">Detailed List</option>
+<?php if ( $privs[ 'configuration' ] == "true" ) { ?>
+                <option value="worker">Work Position Preferences</option>
+<?php } ?>
+              </select>              
+            </form>
+
+         </div>
+        </div>
+
+        <div class="row-fluid">
+          <div class="span12">
+            <div id="event-info">
+            </div>
+          </div>
+        </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/dateformat-1.2.3.js" /></script>
+      <script type="text/javascript">
+      
+        var events, eventJSON, list, selected = 0;
+<?php 
+  if ( !empty( $_POST ) ) {
+    $args = Functions::cleanArray( $_POST );
+    if ( !empty( $args[ 'id' ] ) &&
+         is_numeric( $args[ 'id' ] ) ) {
+?>
+				selected = <?php echo $args[ 'id' ]; ?>;
+<?php 
+    }
+  }
+?>
+        function cancelReg( btn ) {
+          var data = $( btn ).attr( 'id' ).split( "-" );
+          var action = data[ 0 ];
+          var id = data[ 2 ];
+
+          switch( action ) {
+            case "cancel":
+              $( "#cancel-div-" + id ).slideDown();
+            break;
+
+            case "yes":
+              $.post( "<?php echo apiHref; ?>db/registrations/" + id,
+                { '_method' : "delete" },
+                function( json ) {
+                  if ( json == 1 ) {
+                   getEvent();
+                  }
+              });
+            break;
+
+            case "no":
+              $( "#cancel-div-" + id ).slideUp();
+            break;
+          }
+        }
+
+        function getEvents() {
+        
+          $( "#event_id" ).empty();
+          $( "#event_id" ).append(
+            $( "<option/>", { value : 0 } ).text( "Select an Event" )
+           );
+       
+          $.getJSON( "<?php echo apiHref; ?>events/active",
+                     { 'organization_id' : <?php echo $user[ 'organization_id' ]; ?> },
+                     function( json ) {
+            events = json;
+
+            $.each( events, function( index, eventJSON ) {
+
+              eventText = eventJSON.date + ' at ' + eventJSON.site_name
+              if ( eventJSON.name != '' ) {
+                eventText = eventJSON.name + ' ' + eventText;
+              }
+              var option = $( "<option/>", { value : eventJSON.id } ).text( eventText )
+              if ( selected == eventJSON.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#event_id" ).append( option );
+            });
+
+            getEvent();
+
+          });
+        }
+        
+        function getEvent() {
+          
+          if ( selected > 0 ) {
+            $.each( events, function( index, item ) {
+              if ( item.id == selected ) {
+                eventJSON = item;
+              }            
+            });
+
+            $.getJSON( "<?php echo apiHref; ?>registrations/event/" + eventJSON.id,
+                       $( "#navbar-form" ).serialize(),
+                       function( json ) {
+
+              list = json;
+              $.getJSON( "<?php echo apiHref; ?>db/entry_forms/count/",
+                          { 'event_id' : eventJSON.id },
+                         function( count ) {
+                eventJSON[ 'entry_forms' ] = count;
+                showList();
+              });
+
+            });
+          }              
+        }
+        
+        function showList() {
+
+          $( "#event-info" ).empty();
+          $( "#event-info" ).append(
+            $( "<h3/>", { 'class' : "well" } ).
+               html( eventJSON.organization_name + ' ' + eventJSON.name + ' ' + eventJSON.date + ' ' + eventJSON.site_name )
+          );
+          
+          var table = $( "<table/>", { 'class' : "table table-hover" } );
+ 
+          $.each( list, function( index, item ) {
+            row = $( "<tr/>" );
+
+            switch( $( "#list" ).val() ) {
+            
+              case 'email':
+                row.append( $( "<td/>", { 'class' : "span1" } )
+                              .append( "\"" +
+                                       item.entrant_name_first + ' ' +
+                                       item.entrant_name_last + "\" &lt;" +
+                                       item.entrant_email + "&gt;," ) );
+              break;
+
+              case 'details':
+                row.append( $( "<td/>", { 'class' : "span1" } ).append( index+1 ) )
+                   .append( $( "<td/>" ).append( item.entrant_name_last + ', ' + item.entrant_name_first ) )
+                   .append( $( "<td/>" ).append( item.entrant_email ) );
+
+                if ( eventJSON.car_numbers == "1" ) {
+                  row.append( $( "<td/>" ).append( "#" ).append( item.car_number ) );
+                }
+
+                row.append( $( "<td/>" ).append( item.car_year + ' ' + item.car_make + '/' + item.car_model + ' (' + item.car_color + ')' ) )
+                   .append( $( "<td/>" ).append( "Registered On: " + item.date_created ) )
+                   .append( $( "<td/>", { 'class' : "span6" } )
+                      .append( "Comments: " )
+                      .append( item.comments ) );
+
+              break;
+              
+              case 'names':
+              default:
+                row.append( $( "<td/>", { 'class' : "span1" } ).append( index+1 ) )
+                   .append( $( "<td/>", { 'class' : "span2" } )
+                      .append( item.entrant_name_last + ', ' + item.entrant_name_first ) );
+                if ( eventJSON.entry_forms == 0 ) {
+                  var cancelBtn =
+                    $( "<button/>", { 'class': "btn", 'id' : "cancel-btn-" + item.id, 'type' : "button" } )
+                      .html( "Cancel" )
+                      .on( 'click', function() { cancelReg( this ); } )
+
+                  var yesBtn = 
+                    $( "<button/>", { 'class': "btn btn-danger", 'id' : 'yes-btn-' + item.id, 'type' : "button" } )
+                      .html( "Yes" )
+                      .on( 'click', function() { cancelReg( this ); } )
+
+                  var noBtn = 
+                    $( "<button/>", { 'class': "btn", 'id' : 'no-btn-' + item.id, 'type' : "button" } )
+                      .html( "No" )
+                      .on( 'click', function() { cancelReg( this ); } )
+
+                  row.append( $( "<td/>", { 'class' : "span1" } ).append( cancelBtn ) )
+                    .append( $( "<td/>" )
+                      .append(
+                        $( "<div/>", { 'class' : "alert hide", 'id' : "cancel-div-" + item.id } )
+                        .append( "Cancel this entry? This cannot be undone. " )
+                        .append(
+                          $( "<div/>", { 'class' : "btn-group" } )
+                            .append( yesBtn )
+                            .append( noBtn )
+                        )
+                      )
+                    );
+                }
+              break;
+
+              case 'worker':
+                row.append( $( "<td/>", { 'class' : "span1" } ).append(index+1 ) )
+                   .append( $( "<td/>", { 'class' : "span2" } ).append( item.entrant_name_last + ', ' + item.entrant_name_first ) )
+                   .append( $( "<td/>", { 'class' : "span2" } ).append( "1. " + item.work_pos_1_name ) )
+                   .append( $( "<td/>", { 'class' : "span2" } ).append( "2. " + item.work_pos_2_name ) )
+                   .append( $( "<td/>", { 'class' : "span2" } ).append( "3. " + item.work_pos_3_name ) )
+                   .append( $( "<td/>", { 'class' : "span3" } ).append( item.comments ) );
+              break;
+            }
+              
+            table.append( row );
+          });
+          
+          $( "#event-info" ).append( table );
+        }
+          
+        $( "#event_id" ).change( function() {
+          selected = parseInt( $( "#event_id" ).val() );
+          getEvent();
+        });
+
+        $( "#list" ).change( function() {
+          showList();
+        });
+        
+        $( "#order" ).change( function() {
+          getEvent();
+        });
+
+        getEvents();
+
+      </script>
+
+<?php Display::closeBody(); ?>

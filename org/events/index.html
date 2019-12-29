@@ -1,0 +1,197 @@
+<?php
+  require_once "../../common/Common.php";
+  require_once "../../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+
+      <div class="navbar">
+        <div class="navbar-inner">
+          <p class="navbar-text pull-left">
+            <?php echo $org[ 'name' ]; ?> Events
+          </p>
+          <ul class="nav">
+            <li class="divider-vertical"></li>
+          </ul>
+         <form class="navbar-form pull-left">
+            <select class="input-large" id="event_status">
+              <option value="upcoming">Show Upcoming Events</option>
+              <option value="past">Show Past Events</option>
+            </select>
+            <a class="btn btn-primary" href="edit.html">Add New</a>
+					</form>
+				</div>
+			</div>
+
+      <form action="index.html" class="form-horizontal" id="events-form" method="post">
+        <input id="id" name="id" type="hidden" value="0" />
+        <div class="row-fluid">
+          <div class="span12">
+            <table class="table table-bordered table-striped" id="events-table">
+            </table>
+          </div>
+        </div>
+      </form>
+
+<?php Display::closeContainer(); ?>
+
+
+		    <script type="text/javascript" src="<?php echo baseHref; ?>/js/dateFormat-1.2.3.js"></script>
+        <script type="text/javascript">
+
+          var privs = $.parseJSON( '<?php echo $org[ 'privileges' ]; ?>' );
+
+          $( "[data-action]" ).click( function() {
+            $( "#events-form" ).attr( 'action', $( this ).data( 'action' ) );
+ 						$( "#events-form").submit();
+          });
+
+          function getEvents() {
+            $( "#events-table" ).empty(); 
+            $.getJSON( "<?php echo apiHref; ?>events/" + $( "#event_status" ).val(),
+                       { "organization_id" : <?php echo $user[ 'organization_id' ]; ?> },
+                       function( events ) {
+
+              $.each( events, function( index, eventJSON ) {
+                var row = $( "<tr/>" );
+
+  			      	var cell = $( "<td/>", { 'class' : "span4" } );
+  			      	var text = dateFormat( eventJSON.date_ts * 1000, 'dddd, mmmm d, yyyy' ) 
+                if ( eventJSON.name != "" ) { text += " " + eventJSON.name; }
+                cell.append( $( "<p/>" ).html( text ) );
+                row.append( cell );
+
+  			      	var cell = $( "<td/>", { 'class' : "span4" } );
+                if ( eventJSON.public == "0" ) {
+                  text = "This event is not public.";
+                } else if ( eventJSON.status == "will open" ) {
+                  text = "Registration will open on " +
+  			      	         dateFormat( eventJSON.registration_open_ts * 1000, 'dddd, mmmm d, yyyy h:MM tt' );
+                } else {
+                  text = eventJSON.comp_count + " competition entries";
+                  if ( eventJSON.time_only_reg == 1 ) { text += ", " + eventJSON.to_count + " time only entries"; }
+
+                  if ( eventJSON.status == "open" ) {
+                    text += "<br/>Registration closes " +
+  			      	            dateFormat( eventJSON.registration_close_ts * 1000, 'dddd, mmmm d, yyyy h:MM tt' ) ;
+                  } else if ( eventJSON.status == "closed" ) {
+                    text += "<br/>Registration is closed.";
+                  }
+                }
+                cell.append( $( "<p/>" ).html( text ) );
+                row.append( cell );
+
+				        var cell = $( "<td/>", { 'class' : "span4" } );
+                var group = $( "<div/>", { 'class' : "btn-group" } );
+                cell.append( group );
+                
+                group.append( $( "<a/>",
+                	{ 'class' : "btn btn-info dropdown-toggle",
+                	  'data-toggle' : "dropdown",
+                	  'href' : "#" } )
+                	.append( "Action " )
+                	.append( $( "<span/>", { 'class' : "caret" } ) ) );
+                	
+                var list = $( "<ul/>", { 'class' : "dropdown-menu" });
+                group.append( list );
+
+                if ( $( "#event_status" ).val() != "past" ) {
+                  list.append( $( "<li/>" ).append( 
+                    $( "<a/>",
+                  	{ 'data-action' : "edit.html",
+                  	  'data-id' : eventJSON.id,
+                  	})
+                      .html( "Edit Event" )
+                      .on( 'click', function() { submitForm( this ); } ) ) );
+                }
+
+                if ( eventJSON.status != "will open" ) {
+                  list.append( $( "<li/>" ).append( 
+                    $( "<a/>",
+                  	{ 'data-action' : "list.html",
+                  	  'data-id' : eventJSON.id,
+                  	})
+                      .html( "Entry List" )
+                      .on( 'click', function() { submitForm( this ); } ) ) );
+
+                  if ( privs.configuration == "true" ) {
+
+										list.append( $( "<li/>" ).append( 
+											$( "<a/>",
+											{ 'data-action' : "payments.html",
+												'data-id' : eventJSON.id,
+											})
+												.html( "Payments" )
+												.on( 'click', function() { submitForm( this ); } ) ) );
+
+                    list.append( $( "<li/>" ).append( 
+                      $( "<a/>",
+                      	{ 'data-action' : "configure/one.html",
+                      	  'data-id' : eventJSON.id,
+                      	})
+                        .html( "Configure" )
+                        .on( 'click', function() { submitForm( this ); } ) ) );
+                  } else {
+                    list.append( $( "<li/>" ).append( 
+                      $( "<a/>",
+                      	{ 'data-action' : "configure/forms.html",
+                      	  'data-id' : eventJSON.id,
+                      	})
+                        .html( "Entry Forms" )
+                        .on( 'click', function() { submitForm( this ); } ) ) );
+                  }
+                 
+                  if ( privs.results == "true" ) {
+                    list.append( $( "<li/>" ).append( 
+                      $( "<a/>",
+                    	{ 'data-action' : "results.html",
+                    	  'data-id' : eventJSON.id,
+                    	})
+                      .html( "Results" )
+                      .on( 'click', function() { submitForm( this ); } ) ) );
+    
+                    list.append( $( "<li/>" ).append( 
+                      $( "<a/>",
+                    	{ 'data-action' : "metrics.html",
+                    	  'data-id' : eventJSON.id,
+                    	})
+                      .html( "Metrics" )
+                      .on( 'click', function() { submitForm( this ); } ) ) );
+                  }
+                }
+
+                row.append( cell );
+
+      				$( "#events-table" ).append( row ); 
+			         }); 
+            });
+          }
+
+          function submitForm( item ) {
+            $( "#id" ).val( $( item ).data( 'id' ) );
+            $( "#events-form" ).attr( 'action', $( item ).data( 'action' ) );
+            $( "#events-form" ).submit();
+          };
+
+          $( "#event_status" ).change( function() {
+            getEvents();
+					});
+
+          getEvents();
+        </script>
+
+<?php Display::closeBody(); ?>

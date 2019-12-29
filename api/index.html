@@ -1,0 +1,172 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  require_once "include/Request.php";
+
+  define( 'serviceRoot', "api" );
+
+/*
+  header( "Access-Control-Allow-Origin: *" );
+  header( "Access-Control-Allow-Methods: GET, POST" );
+  header( "Access-Control-Allow-Headers: NCZ" );
+  header( "Access-Control-Max-Age: 1728000" );
+*/
+
+  if ( !function_exists( "__autoload" ) ) {
+    function __autoload( $class ) {
+      if ( preg_match( "/Controller/", $class ) &&
+           file_exists( "controllers/".$class.".php" ) ) {
+        require_once "controllers/".$class.".php";
+      } else if ( preg_match( "/View/", $class ) &&
+           file_exists( "views/".$class.".php" ) ) {
+        require_once "views/".$class.".php";
+      }
+    } 
+  }
+
+  function checkAuth( &$request ) {
+
+    if ( empty( $request->parameters[ '__reg_api_version' ] ) ) {
+      array_push( $request->errors, "no api version specified" );
+      return false;
+    }
+
+    $apiVersion = $request->parameters[ '__reg_api_version' ];
+    unset( $request->parameters[ '__reg_api_version' ] );
+
+    switch( $apiVersion ) {
+
+      case "1.0":
+
+        if ( empty( $request->parameters[ '__reg_organization_id' ] ) ) {
+          array_push( $request->errors, "no organization id specified" );
+          return false;
+
+        } else if ( !is_numeric( $request->parameters[ '__reg_organization_id' ] ) &&
+                    ( $request->parameters[ '__reg_organization_id' ] != apiMasterId ) ) {
+          array_push( $request->errors, "non numeric organization id specified" );
+          return false;
+        }
+
+        if ( empty( $request->parameters[ '__reg_request_time' ] ) ) {
+          array_push( $request->errors, "no request time specified" );
+          return false;
+        } else if ( !is_numeric( $request->parameters[ '__reg_request_time' ] ) ) {
+          array_push( $request->errors, "non numeric request_time specified" );
+          return false;
+        }
+
+        if ( empty( $request->parameters[ '__reg_request_token' ] ) ) {
+          array_push( $request->errors, "no request token specified" );
+          return false;
+        }
+
+        $requestTime = intval( $request->parameters[ '__reg_request_time' ] );
+        if ( abs( $requestTime - time() ) > apiTimeOut ) {
+          array_push( $request->errors, "request expired" );
+          return false;
+        }
+
+        $org = array();
+        if ( $request->parameters[ '__reg_organization_id' ] == apiMasterId ) {
+          $org = array( 'id' => apiMasterId, 'apikey' => apiMasterKey );
+        } else {
+          $q = new Query( "organizations" );
+          $org = $q->selectById( $request->parameters[ '__reg_organization_id' ] );
+          if ( empty( $org ) ) {
+            array_push( $request->errors, "organization not found" );
+            return false;
+          } else if ( empty( $org[ 'apikey' ] ) ) {
+            array_push( $request->errors, "no api key for organization" );
+            return false;
+          } else {
+
+            $privs = json_decode( $org[ 'privileges' ], true );
+            if ( array_key_exists( 'apiaccess', $privs ) &&
+                  ( $privs[ 'apiaccess' ] == "true" ) ) {
+              $request->parameters[ 'organization_id' ] =
+                $request->parameters[ '__reg_organization_id' ];
+            } else {
+              array_push( $request->errors, "api access not allowed" );
+              return false;
+            }
+          }
+        }
+
+        $serverToken = sha1( $org[ 'apikey' ] .  "1.0" . $org[ 'id' ] . $requestTime );
+        if ( $serverToken == $request->parameters[ '__reg_request_token' ] ) {
+
+          $request->orgId = $request->parameters[ '__reg_organization_id' ];
+          unset( $request->parameters[ '__reg_organization_id' ] );
+          unset( $request->parameters[ '__reg_request_time' ] );
+          unset( $request->parameters[ '__reg_request_token' ] );
+          return true;
+
+        } else { 
+          array_push( $request->errors, "invalid request token" );
+          return false;
+        }
+
+        break;
+
+      default:
+        array_push( $request->errors, "invalid api version specified" );
+        return false;
+        break;
+
+    }
+
+    // should never get here but just in case
+    array_push( $request->errors, "authorization failed" );
+    return false;
+  }
+
+  $callback = null;
+  $request = new Request();
+  $result = "";
+
+  $controller = $controller_name = $object_name = null;
+  
+  if ( empty( $request->url_elements ) ) {
+    return;
+  }
+
+  $controller_name = ucfirst( array_shift( $request->url_elements ) )."Controller";
+
+  if ( class_exists( $controller_name ) ) {
+    if ( $controller_name == "DbController" ) {
+      if ( ( $table = array_shift( $request->url_elements ) ) != null ) {
+        $controller = new $controller_name( $table );
+      }
+    } else {             
+      $controller = new $controller_name();
+    }
+  }
+
+  if ( $controller != null ) {
+
+    if ( !$controller->requiresAuth() || checkAuth( $request ) ) {
+
+      if ( !Database::isLoaded() ) {
+        $conn = ConnectionFactory::getFactory()->getConnection();
+        Database::loadTables( $conn );
+      }
+
+      if ( array_key_exists( 'callback', $request->parameters ) ) {
+        $callback = $request->parameters[ 'callback' ];
+        unset( $request->parameters[ 'callback' ] );
+      }
+
+      $action_name = strtolower($request->method) . 'Action';
+      $result = $controller->$action_name( $request );
+    }
+  }
+
+  $view_name = ucfirst( $request->format ).'View';
+  $view = class_exists( $view_name ) ? new $view_name() : new JsonView();
+  if ( empty( $request->errors ) ) {
+    $view->render( $result, $callback );
+  } else {
+    $view->render( $request->errors, $callback );
+  }
+?>

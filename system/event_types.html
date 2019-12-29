@@ -1,0 +1,294 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+      <div class="navbar">
+        <div class="navbar-inner">
+          <p class="navbar-text pull-left">
+            Event Types
+          </p>
+          <ul class="nav">
+            <li class="divider-vertical"></li>
+          </ul>
+          <form class="navbar-form pull-left">
+            <select class="span4" id="event_type_id">
+            </select>
+
+            <button class="btn" id="add-btn" type="button"><i class="icon-plus"></i></button>
+              
+          </form>
+          <ul class="nav">
+            <li class="divider-vertical"></li>
+          </ul>
+
+        </div>
+      </div>
+
+      <form class="form-horizontal hide" id="event_type-form" name="event_type-form">
+        <input id="id" name="id" type="hidden" value="0" />
+
+        <div class="row-fluid">
+          <div class="span6">
+    
+            <div class="control-group" id="name-cg">
+              <label class="control-label" for="name">Name</label>
+              <div class="controls">
+              <input class="input-xlarge" id="name" name="name" type="text"/>
+              <span class="label label-info">Required</span>
+              </div>
+            </div>
+      
+            <div class="control-group" id="shortname-cg">
+              <label class="control-label" for="shortname">Short Name</label>
+              <div class="controls">
+              <input class="input-small" id="shortname" maxlength="5" name="shortname" type="text" />
+              </div>
+            </div>
+      
+          </div>
+        </div>
+
+        <div class="row-fluid">
+          <div class="span12">
+            <div class="alert alert-error hide" id="error-div">
+            </div>
+            <div class="alert alert-success hide" id="success-div">
+              Event Type information has been saved.
+            </div>
+      
+            <div class="form-actions">
+              <button class="btn btn-primary" id="save-btn" type="submit">Save Changes</button>
+              <button class="btn" id="clear-btn" type="button">Clear Changes</button>
+            </div>
+  
+          </div>
+        </div>
+          
+      </form>
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+        var event_types;
+
+        function get() {
+        
+          var selected = $( "#id" ).val();
+
+          $( "#event_type_id" ).empty();
+          $( "#event_type_id" ).append(
+            $( "<option/>", { value : 0 } ).text( "Select a Event Type" )
+           );
+       
+          $.getJSON( "<?php echo apiHref; ?>/db/event_types/",
+                     { 'order' : "name" },
+                     function( json ) {
+            event_types = json;
+
+            $.each( event_types, function( index, event_type ) {
+
+              var option = $( "<option/>", { value : event_type.id } ).text( event_type.name )
+              if ( selected == event_type.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#event_type_id" ).append( option );
+            });
+          });
+        }
+        
+        function getEventType( id ) {
+        
+          var event_type;
+          $.each( event_types, function( index, item ) {
+            if ( item.id == id ) {
+              event_type = item;
+            }            
+          });
+
+          if ( $( "#event_type-form" ).is( ":hidden" ) ) {
+            $( "#event_type-form" ).slideDown();
+          }
+
+          $.each( event_type, function( key, val ) {
+            if ( key == "privileges" ) {
+              var privs = $.parseJSON( val );
+              $.each( privs, function( privKey, privVal ) {
+                 $( "#privs_" + privKey ).val( privVal.toString() );
+              });
+            } else if ( $( "#" + key ).length > 0 ) {
+              $( "#" + key ).val( val );
+            }
+          });
+        }        
+          
+        get();
+
+    var requiredIds = Array();
+    $( ".control-group" ).each( function() {
+      var id;
+      $( this ).find( ".control-label" ).each( function() {
+      id = $( this ).attr( 'for' );
+      });
+    
+      var required = false;
+      $( this ).find( ".label" ).each( function() {
+      if ( $( this ).html().indexOf( 'Required' ) !== false ) {
+        requiredIds[ requiredIds.length ] = id;
+      }
+      });
+    });
+
+    $( ".btn" ).click( function() {
+      $( "#error-div" ).slideUp();
+      $( "#success-div" ).slideUp();
+      if ( $( this ).attr( 'id' ) != "delete-btn" ) {
+      $( "#delete-btn" ).removeClass( 'btn-danger' ).html( 'Delete' );
+      }
+    }); 
+
+    $( "#add-btn" ).click( function () {
+    
+      $( "#name" ).val( "" );
+      $( "#shortname" ).val( "" );
+      $( "#url" ).val( "" );
+      $( "#contact_email" ).val( "" );
+      $( "#logo_url" ).val( "" );
+      $( "#supps_url" ).val( "" );
+      
+      if ( $( "#event_type-form" ).is( ":hidden" ) ) {
+      $( "#event_type-form" ).slideDown();
+      }
+      
+      $( "#delete-btn" ).attr( 'disabled', "true" );
+    });
+
+    $( "#clear-btn" ).click( function() {
+      getEventType( $( "#id" ).val() );
+    });
+
+    $( "#delete-btn" ).click( function() {
+
+      if ( $( this ).hasClass( 'btn-danger' ) ) {
+
+      $( this ).removeClass( 'btn-danger' ).html( 'Delete' );
+      var id = $( "#id" ).val();
+      $.post( "<?php echo apiHref; ?>db/event_types/" + $( "#id" ).val(),
+        { '_method' : "delete" },
+        function( result ) {
+        
+        if ( result == 1 ) {
+        $( "#event_type-form" ).slideUp();
+        get();
+        $( "#success-div" ).html( "Event Type deleted!" );
+        $( "#success-div" ).slideDown();
+        } else {
+        $( "#error-div" ).html( "Whoops, something went wrong. We were unable to delete that item." );
+        $( "#error-div" ).slideDown();
+        }
+      });    
+
+      } else {
+      $( this ).addClass( 'btn-danger' ).html( 'Permanently delete this event_type?' );
+      }
+    });
+
+        $( "#event_type_id" ).change( function() {
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+          $( "#delete-btn" ).removeClass( 'btn-danger' ).html( 'Delete' );
+          $( "#delete-btn" ).removeAttr( 'disabled' );
+
+          if ( parseInt( $( "#event_type_id" ).val() ) == 0 ) {
+            $( "#event_type-form" ).slideUp();
+          } else {
+            getEventType( $( this ).val() );
+          }
+        });
+
+    $( "#save-btn" ).click( function() {
+
+      $( "#error-div" ).slideUp();
+      $( "#success-div" ).slideUp();
+
+      var errors = 0;
+      $.each( requiredIds, function( index, field ) {              
+
+      if ( ( $( "#" + field ).val() == null ) ||
+         ( $( "#" + field ).val().length == 0 ) ) {
+        $( "#" + field + "-cg" ).addClass( "error" );
+        errors++;
+      } else {
+        $( "#" + field + "-cg" ).removeClass( "error" );
+      }
+      });
+
+      var op = ( $( "#id" ).val() == 0 ) ? "insert" : "update";
+
+      if ( errors == 0 ) {
+      
+      if ( $( "#id" ).val() == 0 ) {
+        // insert
+        $.post( "<?php echo apiHref; ?>db/event_types/",
+            $( "#event_type-form" ).serialize(),
+            function( event_type ) {
+
+        if ( event_type.id > 0 ) {
+
+          $( "#id" ).val( event_type.id );
+          $( "#delete-btn" ).removeAttr( 'disabled' );
+          $( "#success-div" ).html( "New event_type saved!" );
+          $( "#success-div" ).slideDown();
+          get();
+
+        } else {
+         $( "#error-div" ).html( "Whoops, something went wrong. We were unable to add the new event_type." );
+          $( "#error-div" ).slideDown();
+        }
+        });
+
+      } else {
+        // update
+        $.post( "<?php echo apiHref; ?>db/event_types/" + $( "#id" ).val() + "/",
+            $( "#event_type-form" ).serialize(),
+            function( event_type ) {
+
+        if ( event_type.updated == 1 ) {
+
+          get();
+          $( "#success-div" ).html( "Your changes have been saved." );
+          $( "#success-div" ).slideDown();
+          
+        } else {
+          $( "#error-div" ).html( "Whoops, something went wrong. We were unable to save your changes." );
+          $( "#error-div" ).slideDown();
+        }
+        });
+      }
+
+      } else {
+      $( "#error-div" ).html( "Some required fields are empty, please complete them and try again." );
+      $( "#error-div" ).slideDown();
+      }
+
+      return false;
+    });
+
+      </script>
+
+<?php Display::closeBody(); ?>

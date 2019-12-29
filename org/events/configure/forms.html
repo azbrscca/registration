@@ -1,0 +1,208 @@
+<?php
+  require_once "../../../common/Common.php";
+  require_once "../../../db/Query.php";
+
+  require_once "common.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  $redirect = true;
+  $q = new Query( "events" );
+  $q->joinOn( "site" )
+    ->joinOn( "organization" );
+
+  if ( !empty( $_POST ) ) {
+    $args = Functions::cleanArray( $_POST );
+    if ( isset( $args[ 'id' ] ) &&
+         is_numeric( $args[ 'id' ] ) ) {
+      $event = $q->selectById( $args[ 'id' ] );
+      if ( !empty( $event ) &&
+           ( $event[ 'organization_id' ] == $user[ 'organization_id' ] ) ) {
+        $redirect = false;
+      }
+    }
+  } else if ( !empty( $_SESSION[ 'id' ] ) ) {
+    $event = $q->selectById( $_SESSION[ 'id' ] );
+    if ( !empty( $event ) &&
+         ( $event[ 'organization_id' ] == $user[ 'organization_id' ] ) ) {
+      $redirect = false;
+    }
+  }
+
+  if ( $redirect ) {
+    header( "Location: index.html" );
+  }
+
+  $privs = json_decode( $event[ 'organization_privileges' ], true );
+//
+  function createForm( $registration, $priority, $event_type ) {
+    //echo " creating form for ".$registration[ 'entrant_name_first' ]." ".$registration[ 'entrant_name_last' ]."<br/>";
+    $q = new Query( "entry_forms" );
+  
+    $entryForm = array(
+      'entrant_id' => $registration[ 'entrant_id' ],
+      'event_id' => $registration[ 'event_id' ],
+      'registration_id' => $registration[ 'id' ],
+      'priority' => $priority,
+      'name_first' => ucfirst( strtolower( $registration[ 'entrant_name_first' ] ) ),
+      'name_last' => ucfirst( strtolower( $registration[ 'entrant_name_last' ] ) ),
+      'address_street' => $registration[ 'entrant_address_street' ],
+      'address_city' => $registration[ 'entrant_address_city' ],
+      'address_state' => $registration[ 'entrant_address_state' ],
+      'address_zip' => $registration[ 'entrant_address_zip' ],
+      'phone_home' => $registration[ 'entrant_phone_home' ],
+      'phone_work' => $registration[ 'entrant_phone_work' ],
+      'email' => $registration[ 'entrant_email' ],
+      'club' => $registration[ 'entrant_club' ],
+      'scca_number' => $registration[ 'entrant_scca_number' ],
+      'scca_date' => $registration[ 'entrant_scca_date' ],
+      'emer_name' => $registration[ 'entrant_emer_name' ],
+      'emer_phone' => $registration[ 'entrant_emer_phone' ],
+
+      'year' => $registration[ 'car_year' ],
+      'make' => $registration[ 'car_make' ],
+      'model' => $registration[ 'car_model' ],
+      'color' => $registration[ 'car_color' ],
+      'engine' => $registration[ 'car_engine' ],
+      'tire_brand' => $registration[ 'car_tire_brand' ],
+      'tire_type' => $registration[ 'car_tire_type' ],
+      'tire_size' => $registration[ 'car_tire_size' ],
+      'modifications' => $registration[ 'car_modifications' ],
+      'scca_class_id' => ( $event_type == 2 ? $registration[ 'car_scca_rallyx_class_id' ] : $registration[ 'car_scca_class_id' ] ),
+
+      'car_number' => $registration[ 'car_number' ],
+
+      'codriver' => $registration[ 'codriver' ],
+      'comp_category_id' => $registration[ 'comp_category_id' ],
+    );
+
+    $entryForm[ 'id' ] = $q->insertNew( $entryForm );
+
+    if ( intval( $registration[ 'time_only_reg' ] ) == 1 ) {
+
+      $entryForm[ 'comp_category_id' ] = 0;
+  
+      if ( $registration[ 'car_id' ] != $registration[ 'to_car_id' ] ) {
+  
+        $r = new Query( "cars" );
+        $car = $r->selectById( $registration[ 'to_car_id' ] );
+        if( !empty( $car ) ) {
+          $to_form = array(
+            'year' => $car[ 'year' ],
+            'make' => $car[ 'make' ],
+            'model' => $car[ 'model' ],
+            'color' => $car[ 'color' ],
+            'engine' => $car[ 'engine' ],
+            'tire_brand' => $car[ 'tire_brand' ],
+            'tire_type' => $car[ 'tire_type' ],
+            'tire_size' => $car[ 'tire_size' ],
+            'modifcations' => $car[ 'modifications' ],
+            'scca_class_id' => ( $event_type == 2 ? $registration[ 'car_scca_rallyx_class_id' ] : $registration[ 'car_scca_class_id' ] ),
+          );
+        }
+      }
+
+      $entryForm[ 'id' ] = $q->insertNew( $entryForm );
+
+    }
+  }
+
+  $q = new Query( "registrations" );
+  $registrations = $q->addWhere( 'event_id', $event[ 'id' ] )
+             ->joinOn( 'entrant' )
+             ->joinOn( 'car' )
+             ->addOrder( 'date_created' )
+             ->select();
+  $priority = 1;
+  foreach( $registrations as $registration ) {
+    $q = new Query( "entry_forms" );
+    $q->addWhere( "registration_id", $registration[ 'id' ] );
+    if ( $q->count() == 0 ) {
+      //echo " no form found for ".$registration[ 'entrant_name_first' ]." ".$registration[ 'entrant_name_last' ]."<br/>";
+      createForm( $registration, $priority, $event[ 'event_type_id' ] );
+    } else {
+      //echo " form found for ".$registration[ 'entrant_name_first' ]." ".$registration[ 'entrant_name_last' ]."<br/>";
+    }
+  
+    $priority++;
+  }
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+<?php configureNav( $event, $org ); ?>
+
+        <div class="row-fluid">
+
+          <div class="offset3 span9" id="configure-div">
+          
+            <form action="<?php echo baseHref; ?>forms/index.html" class="form-horizontal" id="event-form" method="post">
+              <input id="action" name="action" type="hidden" value="forms" />
+              <input name="event_id" type="hidden" value="<?php echo $event[ 'id' ]; ?>" />
+<?php if ( $event[ 'time_only_reg' ] == 1 ) { ?>	      
+              <div class="control-group">
+                <label class="control-label" for="form_type">Form Type</label>
+                <div class="controls">
+                  <select class="input-xlarge" id="form_type" name="form_type">
+                    <option value="1" selected="selected">Combined Competition & TO</option>
+                    <option value="2">Separate Competition & TO</option>
+                    <option value="2">Separate, All Competitions followed by All TOs</option>
+                  </select>
+                </div>
+              </div>
+<?php } else { ?>
+              <input name="form_type" type="hidden" value="1" />
+<?php } ?>
+
+              <div class="control-group">
+                <label class="control-label" for="order">Form Ordering</label>
+                <div class="controls">
+                  <select class="input-xlarge" id="order" name="order">
+                    <option value="1" selected="selected">Alphabetical by Last Name</option>
+                    <option value="2">Alphabetical by First Name</option>
+<?php if ( $privs[ 'configuration' ] == "true" ) { ?>
+                    <option value="3">Run Order</option>
+<?php } ?>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="forms-btn" type="button">Generate Forms</button>
+                <button class="btn btn-primary" id="spreadsheet-btn" type="button">Generate Spreadsheet</button>
+              </div>
+            </form>
+          
+          </div>
+
+        </div>
+
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+      
+        $( "#forms-btn" ).click( function() {
+          $( "#action" ).val( "forms" );
+          $( "#event-form" ).submit();
+        });
+
+        $( "#spreadsheet-btn" ).click( function() {
+          $( "#action" ).val( "spreadsheet" );
+          $( "#event-form" ).submit();
+        });
+
+      </script>
+
+<?php Display::closeBody(); ?>

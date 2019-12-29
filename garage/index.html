@@ -1,0 +1,417 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    if ( $user[ 'organization_id' ] != 0 ) {
+      $q = new Query( "organizations" );
+      $org = $q->selectById( $user[ 'organization_id' ] );
+    }
+  } else {
+    header( "Location: ".baseHref );
+  }
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  $q = new Query( "cars" );
+  $cars =
+    $q->addWhere( "entrant_id", $user[ 'id' ] )
+      ->addOrder( "make" )
+      ->addOrder( "model" )
+      ->addOrder( "year" )
+      ->select();
+  $carsJSON = json_encode( $cars );
+
+  $registrations = array();
+  foreach( $cars as $car ) {
+    $q = new Query( "registrations" );
+    $registrations[ $car[ 'id' ] ] =
+     $q->joinOn( "event" )
+       ->addWhere( "car_id", $car[ 'id' ] )
+       ->addWhere( "entrant_id", $user[ 'id' ] )
+       ->addWhereOnJoin( "events", "date", date( "Y-m-d", time() ), ">=" )
+       ->count();
+  }
+
+  $q = new Query( "scca_classes" );
+  $autox_classes =
+    $q->addWhere( "date_effective", date( "Y", time() ), "=", "year" )
+      ->addOrder( "type" )
+      ->addOrder( "id" )
+      ->select();
+
+  $q = new Query( "scca_rallyx_classes" );
+  $rallyx_classes =
+    $q->addOrder( "name" )
+      ->select();
+?>
+      <div class="page-header">
+        <h3>Garage
+          <small>
+            Manage your cars
+          </small>
+        </h3>
+      </div>
+
+      <div class="row-fluid">
+        <div class="span4">
+          <ul class="nav nav-pills nav-stacked" id="car-list">
+          <?php foreach( $cars as $car ) { ?>
+            <li data-carid="<?php echo $car[ 'id' ]; ?>" data-registrations="<?php echo $registrations[ $car[ 'id' ] ]; ?>" id="car-<?php echo $car[ 'id' ]; ?>">
+              <a href="#"><?php echo $car[ 'year' ]." ".$car[ "make" ]." ".$car[ "model" ]." (".$car[ "color" ].")"; ?></a>
+            </li>
+          <?php } ?>
+          </ul>
+
+          <button class="btn" id="add-btn" type="button">Add Car</button><br/>
+
+        </div>
+
+        <div class="span8">
+
+          <div class="hide" id="car-div">
+
+            <form class="form-horizontal" id="car-form" name="car-form">
+              <input id="id" name="id" type="hidden" value="0" />
+              <input id="entrant_id" name="entrant_id" type="hidden" value="<?php echo $user[ 'id' ]; ?>" />
+
+              <fieldset>
+
+                <div class="control-group" id="year-cg">
+                  <label class="control-label" for="year">Year</label>
+                  <div class="controls">
+                    <select class="input-small" id="year" name="year">
+<?php for( $year=1950; $year <= intval( date( "Y", time() ) ) + 1; $year++ ) { ?>
+                      <option><?php echo $year; ?></option>
+<?php } ?>
+                    </select>
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+
+                <div class="control-group" id="make-cg">
+                  <label class="control-label" for="make">Make</label>
+                  <div class="controls">
+                    <input class="input-xlarge" id="make" maxlength="30" name="make" type="text" />
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+
+
+
+                <div class="control-group" id="model-cg">
+                  <label class="control-label" for="model">Model</label>
+                  <div class="controls">
+                    <input class="input-xlarge" id="model" maxlength="30" name="model" type="text" />
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+
+                <div class="control-group" id="color-cg">
+                  <label class="control-label" for="color">Color</label>
+                  <div class="controls">
+                    <input class="input-xlarge" id="color" name="color" type="text" />
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+
+                <div class="control-group" id="engine-cg">
+                  <label class="control-label" for="engine">Engine</label>
+                  <div class="controls">
+                    <input class="input-xlarge" id="engine" name="engine" type="text" />
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+
+                <div class="control-group" id="tire_brand-cg">
+                  <label class="control-label" for="tire_brand">Tire Manufacturer</label>
+                  <div class="controls">
+                    <input class="input-xlarge" id="tire_brand" name="tire_brand" type="text" />
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+
+                <div class="control-group" id="tire_size-cg">
+                  <label class="control-label" for="tire_size">Tire Size</label>
+                  <div class="controls">
+                    <input class="input-xlarge" id="tire_size" name="tire_size" type="text" />
+                  </div>
+                </div>
+
+                <div class="control-group" id="tire_type-cg">
+                  <label class="control-label" for="tire_type">Tire Type</label>
+                  <div class="controls">
+                    <select class="input-xlarge" id="tire_type" name="tire_type">
+                      <option value="0">Competition/Race</option>
+                      <option value="1">Street</option>
+		      <option value="2">Snow/Rally</option>
+                    </select>
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+
+                <div class="control-group" id="modifications-cg">
+                  <label class="control-label" for="modifications">Performance Modifications</label>
+                  <div class="controls">
+                    <textarea class="input-xlarge" id="modifications" name="modifications" rows="5"></textarea>
+                  </div>
+                </div>
+
+                <div class="control-group" id="scca_class_id-cg">
+                  <label class="control-label" for="scca_class_id">SCCA Autocross Class</label>
+                  <div class="controls">
+                    <select class="input-xlarge" id="scca_class_id" name="scca_class_id">
+                      <option value="0">Please Select</option>
+		      <?php foreach( $autox_classes as $autox_class ) { ?>
+		      <option value="<?php echo $autox_class[ 'id' ]; ?>"><?php echo $autox_class[ 'name' ]." (".$autox_class[ 'initials' ].")"; ?></option>
+		      <?php } ?>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="control-group" id="scca_rallyx_class_id-cg">
+                  <label class="control-label" for="scca_rallyx_class_id">SCCA Rallycross Class</label>
+                  <div class="controls">
+                    <select class="input-xlarge" id="scca_rallyx_class_id" name="scca_rallyx_class_id">
+                      <option value="0">Please Select</option>
+		      <?php foreach( $rallyx_classes as $rallyx_class ) { ?>
+		      <option value="<?php echo $rallyx_class[ 'id' ]; ?>"><?php echo $rallyx_class[ 'name' ]." (".$rallyx_class[ 'initials' ].")"; ?></option>
+		      <?php } ?>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="alert alert-error hide" id="error-div">
+                </div>
+                <div class="alert alert-success hide" id="success-div">
+                </div>
+                <div class="alert hide" id="delete-div">
+                  Are you sure you want to delete this car?
+                  <div class="btn-group">
+                    <button class="btn btn-danger" id="yes-btn" type="button">Yes</button>
+                    <button class="btn" id="no-btn" type="button">No</button>
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button class="btn btn-primary" id="save-btn" type="button">Save Changes</button>
+                  <button class="btn" id="clear-btn" type="button">Clear Changes</button>
+                  <button class="btn btn-warning" id="delete-btn" type="button">Delete</button>
+                </div>
+
+              </fieldset>
+            </form>
+          </div>
+        </div>
+      </div>
+
+<?php Display::closeContainer(); ?>
+
+    <script type="text/javascript">
+
+      var carsJSON = $.parseJSON( '<?php echo addslashes( $carsJSON ); ?>' ), cars = {};
+      $.each( carsJSON, function( index, car ) {
+        cars[ car.id ] = car;
+      });
+
+      function loadCar( carId ) {
+        $( "#delete-div" ).slideUp();
+        $( "#error-div" ).slideUp();
+        $( "#success-div" ).slideUp();
+
+        $( "#id" ).val( carId );
+        var reg_count = 0;
+        $.each( $( "#car-list" ).children(), function( index, item ) {
+          ( carId == $( item ).data( 'carid' ) ) ? $( item ).addClass( 'active' ) : $( item ).removeClass( 'active' );
+        });
+
+        $.each( cars[ carId ], function( key, val ) {
+          if ( $( "#" + key ).length > 0 ) {
+            $( "#" + key ).val( $( "<div/>" ).html( val ).text() );
+          }
+        });
+
+        if ( $( "#car-div" ).is( ":hidden" ) ) {
+          $( "#car-div" ).slideDown();
+        }
+      }
+
+      $( ".btn" ).click( function() {
+        $( "#delete-div" ).slideUp();
+        $( "#error-div" ).slideUp();
+        $( "#success-div" ).slideUp();
+      });
+
+      var requiredIds = Array();
+      $( ".control-group" ).each( function() {
+        var id;
+        $( this ).find( ".control-label" ).each( function() {
+          id = $( this ).attr( 'for' );
+        });
+
+        var required = false;
+        $( this ).find( ".label" ).each( function() {
+          if ( $( this ).html().indexOf( 'Required' ) !== false ) {
+            requiredIds[ requiredIds.length ] = id;
+          }
+        });
+      });
+
+      $( "#car-list li" ).click( function() {
+        loadCar( $( this ).data( 'carid' ) );
+      });
+
+      $( "#add-btn" ).click( function () {
+        $( "#id" ).val( 0 );
+        $( "#year" ).val( '<?php echo date( "Y", time() ); ?>' );
+        $( "#make" ).val( '' );
+        $( "#model" ).val( '' );
+        $( "#color" ).val( '' );
+        $( "#engine" ).val( '' );
+        $( "#tire_brand" ).val( '' );
+        $( "#tire_size" ).val( '' );
+        $( "#tire_type" ).val( 1 );
+        $( "#modifications" ).val( '' );
+        $( "#scca_class_id" ).val( 0 );
+        $( "#scca_rallyx_class_id" ).val( 0 );
+
+        if ( $( "#car-div" ).is( ":hidden" ) ) {
+          $( "#car-div" ).slideDown();
+        }
+
+        $.each( $( "#car-list" ).children(), function( index, item ) {
+          $( item ).removeClass( 'active' );
+        });
+
+      });
+
+      $( "#clear-btn" ).click( function() {
+        loadCar( $( "#id" ).val() );
+      });
+
+      $( "#delete-btn" ).click( function() {
+
+        var id = $( "#id" ).val();
+        var registrations = $( "#car-" + id ).data( 'registrations' );
+
+        if ( registrations > 0 ) {
+          $( "#error-div" ).html( "This car cannot be deleted because you are using it in registrations for " + registrations + " upcoming events. You must remove this car from those registrations before you can delete it." );
+          $( "#error-div" ).slideDown();
+        } else {
+          $( "#delete-div").slideDown();
+        }
+      });
+
+      $( "#save-btn" ).click( function() {
+
+        $( "#error-div" ).slideUp();
+        $( "#success-div" ).slideUp();
+
+        var errors = 0;
+        $.each( requiredIds, function( index, field ) {
+
+          if ( ( $( "#" + field ).val() == null ) ||
+               ( $( "#" + field ).val().length == 0 ) ) {
+            $( "#" + field + "-cg" ).addClass( "error" );
+            errors++;
+          } else {
+            $( "#" + field + "-cg" ).removeClass( "error" );
+          }
+        });
+
+        var op = ( $( "#id" ).val() == 0 ) ? "insert" : "update";
+
+        if ( errors == 0 ) {
+
+          const cleanMake = $( "#make" ).val().replace(/[^0-9a-z ]/gi, '');
+          const cleanModel = $( "#model" ).val().replace(/[^0-9a-z ]/gi, '');
+          $( "#make" ).val( cleanMake );
+          $( "#model" ).val( cleanModel );
+
+          if ( $( "#id" ).val() == 0 ) {
+            // insert
+            $.post( "<?php echo apiHref; ?>db/cars",
+                    $( "#car-form" ).serialize(),
+                    function( car ) {
+
+              if ( car.id > 0 ) {
+                $( "#success-div" ).html( "New car saved!" );
+                $( "#success-div" ).slideDown();
+
+                $( "#car-list" ).append(
+                  $( "<li/>", { 'data-carid' : car.id, 'id' : "car-" + car.id, 'class' : "active" } ).append(
+                    $( "<a/>", { 'href' : "#", 'onclick' : 'loadCar(' + car.id + ')' } )
+                      .html( car.year + ' ' + car.make + ' ' + car.model + ' (' + car.color + ')' )
+                  )
+                );
+
+                $( "#id" ).val( car.id );
+                cars[ car.id ] = car;
+
+              } else {
+               $( "#error-div" ).html( "Whoops, something went wrong. We were unable to add the new car." );
+                $( "#error-div" ).slideDown();
+              }
+            });
+
+          } else {
+            // update
+            $.post( "<?php echo apiHref; ?>db/cars/" + $( "#id" ).val(),
+                    $( "#car-form" ).serialize(),
+                    function( car ) {
+
+              if ( car.updated == 1 ) {
+                $( "#success-div" ).html( "Your changes have been saved." );
+                $( "#success-div" ).slideDown();
+
+                $( "#car-" + $( "#id" ).val() ).html(
+                  $( "<a/>", { 'href' : "#", 'onclick' : 'loadCar(' + car.id + ')' } )
+                    .html( car.year + ' ' + car.make + ' ' + car.model + ' (' + car.color + ')' )
+                );
+                $( "#id option:selected" ).text( car.year + ' ' + car.make + ' ' + car.model );
+                cars[ car.id ] = car;
+              } else {
+                $( "#error-div" ).html( "Whoops, something went wrong. We were unable to save your changes." );
+                $( "#error-div" ).slideDown();
+              }
+            });
+          }
+
+        } else {
+          $( "#error-div" ).html( "Some required fields are empty, please complete them and try again." );
+          $( "#error-div" ).slideDown();
+        }
+
+        return false;
+      });
+
+      $( "#no-btn" ).click( function() {
+        $( "#delete-div" ).slideUp();
+      });
+
+      $( "#yes-btn" ).click( function() {
+        $( "#delete-div" ).slideUp();
+        var id = $( "#id" ).val();
+        $.post( "<?php echo apiHref; ?>db/cars/" + id,
+                { '_method' : "delete" },
+                function( result ) {
+
+          if ( result == 1 ) {
+            $( "#car-div" ).slideUp();
+            $( "#car-" + id ).remove();
+          } else {
+            $( "#error-div" ).html( "Whoops, something went wrong. We were unable to delete that item." );
+            $( "#error-div" ).slideDown();
+          }
+        });
+      });
+
+    </script>
+
+<?php Display::closeBody(); ?>

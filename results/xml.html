@@ -1,0 +1,104 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  require_once "results_pdf.php";
+
+  require_once osDir."fpdf-1.7/fpdf.php";
+
+
+  
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    if ( $user[ 'organization_id' ] != 0 ) {
+      $q = new Query( "organizations" );
+      $org = $q->selectById( $user[ 'organization_id' ] );
+    }
+  }
+
+  $id = 0;
+  if ( !empty( $_SERVER[ 'REQUEST_URI' ] ) ) {
+    $uri = $_SERVER[ 'REQUEST_URI' ];
+    if ( strpos( $_SERVER[ 'REQUEST_URI' ], '?' ) !== false ) {
+      $uri = substr( $_SERVER[ 'REQUEST_URI' ], 1, strpos( $_SERVER[ 'REQUEST_URI' ], '?' ) - 1 );
+    }
+    $id = substr( $uri, strrpos( $uri, '/' ) + 1 );
+    if ( !is_numeric( $id ) ) {
+      $id = 0;
+    }
+  }
+
+  if ( $id == 0 ) {
+    header( "Location: ".baseHref );
+  }
+
+  $q = new Query( "events" );
+  $event = 
+    $q->joinOn( "event_type", array( "name" ) )
+      ->joinOn( "organization", array( "name", "shortname", "url", "privileges" ) )
+      ->joinOn( "site", array( "name" ) )
+      ->timestamps( true )
+      ->selectById( $id );
+
+  $showResults = 
+    !empty( $event ) &&
+    ( ( $event[ 'results' ] == 1 ) ||
+      ( !empty( $user ) && ( $user[ 'organization_id' ] == $event[ 'organization_id' ] ) ) );
+
+  $q = new Query( "results" );
+  $results = 
+    $q->addWhere( "event_id", $event[ 'id' ] )
+      ->addWhere( "comp_category_id", 0, "!=" )
+      ->addWhere( "noshow", 0 )
+      ->addOrder( "name_last" )
+      ->addOrder( "name_first" )
+      ->select();
+
+  // this will be slow, figure out a better way
+  foreach( $results as &$result ) {
+    if ( $result[ 'registration_id' ] == 0 ) {
+      $result[ 'scca_number' ] = "";
+    } else {
+      $q = new Query( "registrations" );
+      $registration = 
+        $q->addWhere( "id", $result[ 'registration_id' ] )
+          ->joinOn( "entrant" )
+          ->selectOne();
+      $result['entrant_scca_number'] = $registration['entrant_scca_number'];
+      $result['entrant_address'] = trim(
+        $registration['entrant_address_street']." ".
+        $registration['entrant_address_city'].", ".
+        $registration['entrant_address_state']." ".
+        $registration['entrant_address_zip']
+      );
+    }
+  }
+
+  $simple_xml = new SimpleXMLElement("<SCCAParticipationList></SCCAParticipationList>");
+  $event_xml = $simple_xml->addChild( "EventInformation");
+  $event_xml->addChild( "Club", $event['organization_name'] );   
+  $event_name = ( !empty( $event[ 'name' ] ) ? $event['name'] : $event[ 'organization_shortname']." Autocross" );
+  $event_xml->addChild( "Event", $event_name );   
+  $event_xml->addChild( "Date", date( "Y-m-d", $event['date_ts'] ) );   
+
+  foreach( $results as $result ) {
+    $entry_xml = $simple_xml->addChild("Entry");
+
+    $entry_xml->addChild("MemberNo",Functions::cleanName($result['entrant_scca_number']));
+    $entry_xml->addChild("FirstName",Functions::cleanName($result['name_first']));
+    $entry_xml->addChild("LastName",$result['name_last']);
+    $entry_xml->addChild("Class",$result['class']);
+    $entry_xml->addChild("Pos",$result['time_rank']);
+    $entry_xml->addChild("CarModel",$result['car']);
+    $entry_xml->addChild("Address",$result['entrant_address']);
+  }
+
+  header('Content-type: text/xml');
+  $doc_title =
+    preg_replace( "/ /", "_", $org[ 'shortname' ] )."_".
+    date( "m-d-Y", $event[ 'date_ts' ] ).".xml";
+  header('Content-Disposition: attachment;filename="'.$doc_title.'"');
+  echo $simple_xml->asXML();
+?>

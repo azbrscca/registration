@@ -1,0 +1,950 @@
+<?php
+  require_once "../../common/Common.php";
+  require_once "../../db/Query.php";
+
+  require_once "../forms/entry_fees.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  $q = new Query( "event_types" );
+  $event_types =
+    $q->addOrder( "name")
+       ->select();
+
+  $org_event_types = json_decode( $org[ 'event_types' ], true );
+  $privs = json_decode( $org[ 'privileges' ], true );
+?>
+        <link href="<?php echo baseHref; ?>css/bootstrap-wysihtml5.css" rel="stylesheet" />
+
+        <div class="navbar">
+          <div class="navbar-inner">
+            <p class="navbar-text pull-left">
+              <?php echo $org[ 'name' ]; ?> Events
+            </p>
+            <ul class="nav">
+              <li class="divider-vertical"></li>
+            </ul>
+            <form class="navbar-form pull-left">
+              <select class="span4" id="event_id" name="event_id">
+              </select>
+              <button class="btn" id="add-btn" type="button"><i class="icon-plus"></i></button>
+              <button class="btn" id="copy-btn" type="button"><i class="icon-copy"></i></button>
+            </form>
+
+            <ul class="nav">
+              <li class="divider-vertical"></li>
+            </ul>
+
+          </div>
+        </div>
+
+        <form class="form-horizontal hide" id="event-form" name="event-form">
+          <input id="id" name="id" type="hidden" value="0" />
+          <input id="organization_id" name="organization_id" type="hidden" value="<?php echo $user[ 'organization_id' ]; ?>" />
+
+
+          <div class="tabbable">
+            <ul class="nav nav-pills">
+              <li class="active"><a href="#basic-tab" data-toggle="tab">Basic Information</a></li>
+              <li><a href="#details-tab" data-toggle="tab">Event Details</a></li>
+              <li><a href="#regulations-tab" data-toggle="tab">Event Supplementals</a></li>
+              <li><a href="#entryfees-tab" data-toggle="tab">Entry Fees</a></li>
+              <li><a href="#payments-tab" data-toggle="tab">Event Payment Information</a></li>
+              <li><a href="#numbers-tab" data-toggle="tab">Car Numbers</a></li>
+            </ul>
+
+            <div class="tab-content">
+
+              <div class="tab-pane active" id="basic-tab">
+								<div class="row-fluid">
+									<div class="span6">
+
+										<div class="control-group" id="link-cg">
+											<label class="control-label" for="link">Registration Link</label>
+											<div class="controls">
+												<span class="input-xlarge uneditable-input" id="link"></span>
+											</div>
+										</div>
+
+										<div class="control-group" id="event_type_id-cg">
+											<label class="control-label" for="event_type_id">Event Type</label>
+											<div class="controls">
+												<select class="input-xlarge" id="event_type_id" name="event_type_id">
+												<?php foreach( $event_types as $event_type ) { ?>
+						<?php   if ( in_array( $event_type[ 'id' ], $org_event_types ) ) { ?>
+							<option value="<?php echo $event_type[ 'id' ]; ?>"><?php echo $event_type[ 'name' ]; ?></option>
+						<?php   } ?>
+												<?php }?>
+												</select>
+											</div>
+										</div>
+
+
+										<div class="control-group" id="public-cg">
+											<label class="control-label" for="public">Visibility</label>
+											<div class="controls">
+												<select class="input-small" id="public" name="public">
+													<option value="1">Public</option>
+                          <option value="2">Private</option>
+													<option value="0">Hidden</option>
+												</select>
+											</div>
+										</div>
+
+										<div class="control-group" id="name-cg">
+											<label class="control-label" for="name">Name</label>
+											<div class="controls">
+												<input class="input-xlarge" id="name" name="name" type="text"/>
+											</div>
+										</div>
+
+										<div class="control-group" id="site_id-cg">
+											<label class="control-label" for="site_id">Site</label>
+											<div class="controls">
+												<select class="input-xlarge" id="site_id" name="site_id">
+													<option value="0">To Be Determined</option>
+			<?php
+				$q = new Query( "sites" );
+				$sites = $q->addWhere( "organization_id", $org[ 'id' ] )->addOrder( "name" )->select();
+				foreach( $sites as $s ) {
+			?>
+													<option value="<?php echo $s[ 'id' ]; ?>"><?php echo $s[ 'name' ]; ?></option>
+			<?php
+				}
+			?>
+												</select>
+											</div>
+										</div>
+
+										<div class="control-group" id="date-cg">
+											<label class="control-label" for="date">Event Date</label>
+											<div class="controls">
+								<div class="input-append">
+													<input class="input-small" id="date" name="date" type="text"/>
+								<span class="add-on"><i class="icon-calendar"></i></span>
+								</div>
+								<div class="help-block hide" id="scca-date-warning">Expiration date has past!</div>
+											</div>
+										</div>
+
+										<div class="control-group" id="registration_open-cg">
+											<label class="control-label" for="registration_open">Registration Open </label>
+											<div class="controls">
+												<div class="input-append ">
+													<input class="input-small" id="registration_open_date" type="text" />
+													<span class="add-on"><i class="icon-calendar"></i></span>
+												</div>
+												<div class="input-append bootstrap-timepicker-component">
+													<input id="registration_open_time" class="input-small" type="text" />
+													<span class="add-on"><i class="icon-time"></i></span>
+												</div>
+												<input id="registration_open" name="registration_open" type="hidden" />
+											</div>
+										</div>
+
+										<div class="control-group" id="registration_close-cg">
+											<label class="control-label" for="registration_close">Registration Close </label>
+											<div class="controls">
+												<div class="input-append ">
+													<input class="input-small" id="registration_close_date" type="text" />
+								<span class="add-on"><i class="icon-calendar"></i></span>
+								</div>
+												<div class="input-append bootstrap-timepicker-component">
+													<input id="registration_close_time" class="input-small" type="text" />
+													<span class="add-on"><i class="icon-time"></i></span>
+												</div>
+												<input id="registration_close" name="registration_close" type="hidden" />
+											</div>
+										</div>
+									</div>
+						
+									<div class="span6">
+
+										<div class="control-group" id="time_only_reg-cg">
+											<label class="control-label" for="site_id">Enable Time Only Registration</label>
+											<div class="controls">
+												<select class="input-small" id="time_only_reg" name="time_only_reg">
+													<option value="0">No</option>
+													<option value="1">Yes</option>
+												</select>
+											</div>
+										</div>
+
+										<div class="control-group" id="enable_prepay-cg">
+											<label class="control-label" for="enable_prepay">Enable Pre-Payment Tracking</label>
+											<div class="controls">
+												<select class="input-small" id="enable_prepay" name="enable_prepay">
+													<option value="0">No</option>
+													<option value="1">Yes</option>
+												</select>
+											</div>
+										</div>
+
+										<div class="control-group" id="registration_limit-cg">
+											<label class="control-label" for="registration_limit">Total Entry Limit</label>
+											<div class="controls">
+												<input class="input-small" id="registration_limit" name="registration_limit" type="text" />
+											</div>
+										</div>
+
+										<div class="control-group" id="comp_limit-cg">
+											<label class="control-label" for="comp_limit">Competition Entry Limit</label>
+											<div class="controls">
+												<input class="input-small" id="comp_limit" name="comp_limit" type="text" />
+											</div>
+										</div>
+
+										<div class="control-group" id="to_limit-cg">
+											<label class="control-label" for="to_limit">Time Only Entry Limit</label>
+											<div class="controls">
+												<input class="input-small" id="to_limit" name="to_limit" type="text" />
+											</div>
+										</div>
+
+										<div class="control-group" id="comp_group_id-cg">
+											<label class="control-label" for="comp_group_id">Competition Category Group</label>
+											<div class="controls">
+												<select class="input-xlarge" id="comp_group_id" name="comp_group_id">
+			<?php
+				$q = new Query( "comp_groups" );
+				$groups = $q->addWhere( "organization_id", $org[ 'id' ] )->addOrder( "name" )->select();
+
+				foreach( $groups as $group ) {
+          $q = new Query( "comp_categories" );
+          $count = $q->addWhere( 'group_id', $group[ 'id' ] )->count();
+          echo $group[ 'name' ]."<br/>";
+			?>
+													<option data-count="<?php echo $count; ?>" value="<?php echo $group[ 'id' ]; ?>"><?php echo $group[ 'name' ]; ?></option>
+			<?php
+				}
+			?>
+												</select>
+                        <div class="alert alert-error help-block hide" id="comp_group_help">
+                          This group comtains no competition categories and cannot be used.
+                        </div>
+											</div>
+										</div>
+      <?php if ( !empty( $privs ) && !empty( $privs[ 'configuration'] ) &&
+                ( $privs[ 'configuration' ] == "true" ) ) { ?>
+										<div class="control-group" id="default_work_pos-cg">
+											<label class="control-label" for="default_work_pos">Default Work Position</label>
+											<div class="controls">
+												<select class="input-xlarge" id="default_work_pos" name="default_work_pos">
+                          <option value="0">None</option>
+			<?php
+				  $q = new Query( "work_positions" );
+				  $positions = $q->addWhere( "organization_id", $org[ 'id' ] )->addOrder( "name" )->select();
+          $course_position = array();
+				  foreach( $positions as $p ) {
+            if( strtolower( $p[ 'name' ] ) == "course" ) {
+              $course_position = $p;
+            }
+			?>
+													<option value="<?php echo $p[ 'id' ]; ?>"><?php echo $p[ 'name' ]; ?></option>
+			<?php
+				  }
+			?>
+												</select>
+											</div>
+										</div>
+      <?php
+        }
+      ?>
+									</div>
+								</div>
+							</div> <!-- tab pane -->
+							
+              <div class="tab-pane" id="details-tab">
+
+								<div class="row-fluid">
+									<div class="span12">
+										<div class="alert alert-info">
+											<strong>Event Specific Details</strong>
+											<ul>
+												<li>Example display on the right will update when changes are saved</li>
+												<li>If left blank, no event details block will display on the registration page</li>
+											</ul>
+										</div>
+				
+										<div class="row-fluid">
+											<div class="span6">
+												<div class="control-group">
+													<textarea id="details" name="details" class="span12" rows="6" placeholder=""></textarea>
+												</div>
+											</div>
+
+											<div class="span6">
+												<h4>Event Details</h4>
+												<div class="well well-small">
+													<p id="details-p"></p>
+												</div>
+											</div>
+										</div>
+                  </div>
+                </div>
+							</div> <!-- tab pane -->
+
+              <div class="tab-pane" id="regulations-tab">
+                <div class="row-fluid">
+                  <div class="span12">
+
+										<div class="alert alert-info">
+											<strong>Event Specific Supplimental Regulations</strong>
+                      <p>Use this area to create supplimental regulations for this specific event. If this area is left blank, the organization's default supplimental regulations block will be displayed on the registration page</p>
+                    </div>
+
+										<div class="row-fluid">
+											<div class="span6">
+												<div class="control-group">
+													<textarea id="regulations" name="regulations" class="span12" rows="6" placeholder=""></textarea>
+												</div>
+											</div>
+
+											<div class="span6">
+												<h4>Event Supplimental Regulations</h4>
+                        <div class="alert">
+                          <p><i class="icon-warning-sign"></i> Please ensure you read and understand the supplemental regulations for <?php echo $org[ 'name' ]; ?> Events.</p>
+                          <?php if ( $org[ 'supps_url' ] != "" ) { ?>
+                          <p class="text-center"><a class="btn btn-info" href="<?php echo $org[ 'supps_url' ]; ?>" target="_newwin"><?php echo $org[ 'name' ]; ?> Supplemental Regulations</a></p>
+                          <?php } ?>
+
+                          <p id="regulations-p"></p>
+                          <p>By registering online you agree to abide by the stated supplemental regulations or may be asked to leave the event without a refund.</p>
+
+                        </div>
+											</div>
+                    </div>
+
+									</div>
+								</div>
+							</div> <!-- tab pane -->
+
+              <div class="tab-pane" id="numbers-tab">
+
+                <div class="row-fluid">
+                  <div class="span12">
+
+                    <div class="alert alert-info">
+                      <strong>Car Numbers</strong>
+                      <p>
+                        Enabling car number support allows entrants to select a unique car number when they register for an event.<br/>
+                      </p>
+                    </div>
+
+										<div class="control-group" id="car_numbers-cg">
+											<label class="control-label" for="name">Car Numbers</label>
+											<div class="controls">
+												<select class="input-medium" id="car_numbers" name="car_numbers">
+                          <option value="0">Disabled</option>
+                          <option value="1">Enabled</option>
+                        </select>
+											</div>
+										</div>
+
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-pane" id="entryfees-tab">
+                <div class="span12">
+
+                  <div class="alert alert-info">
+                    <p>
+                      Each organization has a standard entry fee structure setup in the organization inforation.
+                      If the entry fees for this event will differ, select 'No' from 'Use Standard Entry Fees'
+                      and fill in the required fields below. Entering 0 or 0.00 is allowed.
+                    </p>
+                    <p>
+                      If at any time 'Use Standard Entry Fees' is reset to 'Yes', the fields below will be
+                      re-populated with the standard entry fees and will be disabled for editing.
+                    </p>
+                    <p>
+                      <strong>If entry fees are changed after registration for
+                      the event has opened it is the organization's
+                      responsibility to ensure that entrants who have already registered for the
+                      event are notified of the change.</strong>
+                    </p>
+                  </div>
+
+                  <div class="control-group">
+                    <label class="control-label" for="name">Use Standard Entry Fees</label>
+                    <div class="controls">
+                      <select class="input-medium" id="standard_entry_fees">
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                      </select>
+                      <input id="disable_entry_fees" name="entry_fees" type="hidden" value="" disabled />
+                    </div>
+                  </div>
+                  <!-- future
+                  <div class="control-group">
+                    <label class="control-label" for="name">Hide Entry Fees For This Event</label>
+                    <div class="controls">
+                      <select class="input-medium" id="hide_entry_fees">
+                        <option value="0">No</option>
+                        <option value="1">Yes</option>
+                      </select>
+                      <input id="disable_entry_fees" name="entry_fees" type="hidden" value="" disabled />
+                    </div>
+                  </div>
+                  -->
+                  
+<?php EntryFeeForm::htmlFields(); ?>
+                </div>
+              </div> <!-- tab pane -->
+
+              <div class="tab-pane" id="payments-tab">
+
+                <div class="row-fluid">
+                  <div class="span12">
+                    <div class="alert alert-info">
+                      <strong>Event Specific Payment Information</strong>
+                      <p>Use this area to provide payment information for this specific event. If this area is left blank, the organization's payment details block will be displayed once an entrant registers for the event.</p>
+                    </div>
+
+                    <div class="row-fluid">
+                      <div class="span6">
+                        <div class="control-group">
+                          <textarea id="payment_info" name="payment_info" class="span12" rows="6" placeholder=""></textarea>
+                        </div>
+                      </div>
+
+                      <div class="span6">
+                        <h4>Payment Information</h4>
+                        <div class="well well-small">
+                          <p id="payment_info-p"></p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div> <!-- tab pane -->
+
+						</div>
+					</div>
+
+          <div class="row-fluid">
+            <div class="span12">
+              <div class="alert alert-error hide" id="error-div">
+              </div>
+              <div class="alert alert-success hide" id="success-div">
+              </div>
+
+              <div class="alert hide" id="delete-div">
+                Are you sure you want to delete this event?
+                <div class="btn-group">
+                  <button class="btn btn-danger" id="yes-btn" type="button">Yes</button>
+                  <button class="btn" id="no-btn" type="button">No</button>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="save-btn" type="button">Save Changes</button>
+                <button class="btn" id="clear-btn" type="button">Clear Changes</button>
+                <button class="btn btn-warning" id="delete-btn" type="button">Delete</button>
+              </div>
+            </div>
+          </div>
+        </form>
+    
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/bootstrap-datepicker.js"></script>
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/bootstrap-timepicker.js"></script>
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/dateformat-1.2.3.js"></script>
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/wysihtml5-0.3.0.min.js"></script>
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/bootstrap-wysihtml5.js"></script>
+
+      <script type="text/javascript">
+
+        var events, now = new Date(), selected = 0;
+        var org_fees = $.parseJSON( "<?php echo addslashes( $org[ 'entry_fees' ] ); ?>" );
+
+        function checkDate( id, cg ) {
+          if ( cg == "" ) { cg = id + "-cg"; }
+					var date = Date.parse( $( id ).val() );
+					 if ( isNaN( date ) ) {
+						$( id ).val( "Invalid Date" );
+						$( cg ).addClass( "error" );
+						return false;
+					} else {
+						// account for UTC offset
+						date = new Date( date + ( 7*60*60*1000 ) );
+						$( id ).val( dateFormat( date, 'isoDate' ) );      
+						$( cg ).removeClass( "error" );
+						return true;
+					}
+				}
+
+        $( "#standard_entry_fees" ).change( function() {
+          var custom_fees = ( $( this ).val() == 0 );
+          $.each( $( "[name^=entry_fees]" ), function( i, item ) {
+            if ( custom_fees ) {
+              $( item ).removeAttr( 'disabled' );
+            } else {
+              $( item ).attr( 'disabled', "disabled" );
+            }
+          });
+          if ( custom_fees ) {
+            $( "#disable_entry_fees" ).attr( 'disabled', "disabled" );
+          } else {
+            $( "#disable_entry_fees" ).removeAttr( 'disabled' );
+            $.each( org_fees, function( key, val ) {
+              $( "#" + key ).val( val.toString() );
+            });
+          }
+        });
+
+    	$( "#date" ).datepicker({
+    		autoclose: true,
+    		format: 'yyyy-mm-dd',
+    		startDate: now.format( 'isoDate' ),
+    	});
+
+    	$( "#date" ).change( function() {
+    		checkDate( "#date", "" );
+    	});
+
+        $( "#comp_group_id" ).change( function() {
+          checkCompGroup();
+        });
+
+
+        $('#details').wysihtml5({
+          "image": false,
+        });
+
+        $('#payment_info').wysihtml5({
+          "image": false,
+        });
+
+    	$( "#registration_open_date" ).datepicker({
+    		autoclose: true,
+    		format: 'yyyy-mm-dd',
+    		startDate: now.format( 'isoDate' ),
+    	});
+
+    	$( "#registration_open_date" ).change( function() {
+    		checkDate( "#registration_open_date", "#registration_open-cg" );
+    	});
+
+    	$( "#registration_open_time" ).timepicker({
+    		defaultTime: false,
+    		disableFocus: true,
+    		showInputs: false,
+    	});
+
+    	$( "#registration_close_date" ).datepicker({
+    		autoclose: true,
+    		format: 'yyyy-mm-dd',
+    		startDate: now.format( 'isoDate' ),
+    	});
+
+    	$( "#registration_close_date" ).change( function() {
+    		checkDate( "#registration_close_date", "#registration_close-cg" );
+    	});
+
+    	$( "#registration_close_time" ).timepicker({
+    		defaultTime: false,
+    		disableFocus: true,
+    		showInputs: false,
+    	});
+
+        $('#regulations').wysihtml5({
+          "image": false,
+        });
+
+        function checkCompGroup() {
+          var option = $( "#comp_group_id" ).find( "option:selected" );
+          var count = option.data( 'count' );
+          if ( count == 0 ) {
+            $( "#comp_group_help" ).slideDown();
+            return 1;
+          } else {
+            $( "#comp_group_help" ).slideUp();
+            return 0;
+          }
+        }
+
+        function getEvents( selected ) {
+        
+          $( "#event_id" ).empty();
+          $( "#event_id" ).append(
+            $( "<option/>", { value : 0 } ).text( "Select an Event" )
+           );
+       
+          $.getJSON( "<?php echo apiHref; ?>events/upcoming/",
+                     { "organization_id" : $( "#organization_id" ).val() },
+                     function( json ) {
+            events = json;
+
+            $.each( events, function( index, eventJSON ) {
+              eventText = eventJSON.date + ' at ' + eventJSON.site_name
+              if ( eventJSON.name != '' ) {
+                eventText = eventJSON.name + ' ' + eventText;
+              }
+              var option = $( "<option/>", { value : eventJSON.id } ).text( $( "<div/>" ).html( eventText ).text() )
+              if ( selected == eventJSON.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#event_id" ).append( option );
+            });
+            if ( selected != 0 ) {
+              loadEvent( selected );
+            } else {
+              $( "#add-btn" ).trigger( "click" );
+            }
+          });
+        }
+        
+        function loadEvent( id ) {
+        
+          var eventJSON;
+          $.each( events, function( index, item ) {
+            if ( item.id == id ) {
+              eventJSON = item;
+            }            
+          });
+
+          if ( $( "#event-form" ).is( ":hidden" ) ) {
+            $( "#event-form" ).slideDown();
+          }
+
+          $.each( eventJSON, function( key, val ) {
+            if ( $( "#" + key ).length > 0 ) {
+              if ( key == 'details' || key == 'payment_info' || key == 'regulations' ) {
+                val = $( '<div/>' ).html( val ).text();
+							  $( "#" + key ).data("wysihtml5").editor.setValue(val);
+              }
+              $( "#" + key ).val( $( "<div/>" ).html( val ).text() );
+            }
+          });
+
+          var desired_offset = 7;
+
+          var openDate = new Date( parseInt( eventJSON.registration_open_ts )*1000 );
+          var delta = desired_offset - ( openDate.getTimezoneOffset() / 60 );
+          openDate.setHours( openDate.getHours() - delta );
+          $( "#registration_open_date" ).val( openDate.format( 'isoDate' ) );
+          $( "#registration_open_time" ).val( openDate.format( 'hh:MM TT' ) );
+
+          var closeDate = new Date( parseInt( eventJSON.registration_close_ts )*1000 );
+          closeDate.setHours( closeDate.getHours() - delta );
+          $( "#registration_close_date" ).val( closeDate.format( 'isoDate' ) );
+          $( "#registration_close_time" ).val( closeDate.format( 'hh:MM TT' ) );
+          
+          $( "#link" ).html( "<?php echo baseHref; ?>register/" + eventJSON.id );
+
+          $( "#details-p" ).html( $( "#details" ).data("wysihtml5").editor.getValue() );
+          $( "#payment_info-p" ).html( $( "#payment_info" ).data("wysihtml5").editor.getValue() );
+          $( "#regulations-p" ).html( $( "#regulations" ).data("wysihtml5").editor.getValue() );
+
+          var entry_fees = $.parseJSON( eventJSON.entry_fees );
+          if ( eventJSON.entry_fees.length == 0 ) {
+            $( "#standard_entry_fees" ).val( 1 );
+            entry_fees = org_fees;
+          } else {
+            $( "#standard_entry_fees" ).val( 0 );
+          }
+          $( "#standard_entry_fees" ).trigger( 'change' );
+
+          $.each( entry_fees, function( key, val ) {
+            $( "#" + key ).val( val.toString() );
+          });
+
+        }
+
+        var requiredIds = Array();
+        $( ".control-group" ).each( function() {
+          var id;
+          $( this ).find( ".control-label" ).each( function() {
+            id = $( this ).attr( 'for' );
+          });
+          
+          var required = false;
+          $( this ).find( ".label" ).each( function() {
+            if ( $( this ).html().indexOf( 'Required' ) !== false ) {
+              requiredIds[ requiredIds.length ] = id;
+            }
+          });
+        });
+
+        $( ".btn" ).click( function() {
+          $( "#delete-div" ).slideUp();
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+        });
+      
+        $( "#add-btn" ).click( function () {
+
+          $( "#event_id" ).val( 0 );
+          $( "#link" ).html( "Not available until event is created." );
+
+          $( "#id" ).val( 0 );
+          $( "#public" ).val( 1 );
+          $( "#name" ).val( '' );
+          $( "#site_id" ).val( 0 );
+
+          var now = new Date();
+          $( "#date" ).val( now.format( 'isoDate' ) );
+
+          $( "#registration_open_date" ).val( now.format( 'isoDate' ) );
+          $( "#registration_open_time" ).val( now.format( 'hh:00 TT' ) );
+          $( "#registration_close_date" ).val( now.format( 'isoDate' ) );
+          $( "#registration_close_time" ).val( now.format( 'hh:00 TT' ) );
+
+          $( "#time_only_reg" ).val( 1 );
+          $( "#enable_prepay" ).val( 0 );
+
+          $( "#registration_limit" ).val( 0 );
+          $( "#comp_limit" ).val( 0 );
+          $( "#to_limit" ).val( 0 );
+
+          var options = $( "#comp_group_id" ).find( "option" );
+          $( "#comp_group_id" ).val( $(options[ 0 ] ).val() );
+          checkCompGroup();
+
+<?php if ( !empty( $privs ) && !empty( $privs[ 'configuration'] ) &&
+           ( $privs[ 'configuration' ] == "true" ) && !empty( $course_position ) ) { ?>
+          $( "#default_work_pos" ).val( <?php echo $course_position[ 'id' ]; ?> );
+<?php } ?>
+          $( "#details" ).val( '' );
+          $( "#payment" ).val( '' );
+          $( "#regulations" ).val( '' );
+
+          if ( $( "#event-form" ).is( ":hidden" ) ) {
+            $( "#event-form" ).slideDown();
+          }
+
+          $.each( org_fees, function( key, val ) {
+            $( "#" + key ).val( val.toString() );
+          });
+          $( "#standard_entry_fees" ).val(1).trigger( 'change' );
+            
+          $( "#delete-btn" ).attr( 'disabled', "true" );
+
+        });
+
+        $( "#clear-btn" ).click( function() {
+          loadEvent( $( "#event_id" ).val() );
+        });
+
+        $( "#copy-btn" ).click( function() {
+          if ( parseInt( $( "#id" ).val() ) != 0 ) {
+            $( "#id" ).val( "0" );
+            $( "#name" ).val( $( "#name" ).val() + " Copy" );
+            $( "#public" ).val( 0 );
+            $( "#save-btn" ).trigger( 'click' );
+          }
+        }).popover({
+          'content' : "Create a copy of the current event. The Visibility of newly created event will be set to 'Hidden'.",
+          'delay' : 500,
+          'html' : "true",
+          'placement' : "bottom",
+          'title' : "Copy This Event",
+          'trigger' : "hover",
+        });
+
+        $( "#delete-btn" ).click( function() {
+          $( "#delete-div" ).slideDown();
+        });
+
+        $( "#event_id" ).change( function() {
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+          $( "#delete-btn" ).removeClass( 'btn-danger' ).html( 'Delete' );
+          $( "#delete-btn" ).removeAttr( 'disabled' );
+
+          if ( parseInt( $( "#event_id" ).val() ) == 0 ) {
+            $( "#event-form" ).slideUp();
+            $( "#copy-btn" ).attr('disabled',"disabled");
+          } else {
+            $( "#copy-btn" ).removeAttr('disabled');
+            loadEvent( $( this ).val() );
+            checkCompGroup();
+          }
+        });
+
+        $( "#save-btn" ).click( function() {
+
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+
+          var errors = 0;
+
+          var dateTime = $( "#registration_open_date" ).val();
+          var tokens = $( "#registration_open_time" ).val().split( " " );
+          var meridian = tokens[ 1 ];
+          tokens = tokens[ 0 ].split( ":" );
+          var hour = parseInt( tokens[ 0 ] );
+          if ( meridian.toUpperCase() == "PM" ) {
+            if ( hour != 12 ) {
+              hour += 12;
+            }
+          } else if ( hour == 12 ) {
+            hour = 0;
+          }
+          dateTime += ' ' + hour.toString() + ':' + tokens[ 1 ] + ":00";
+          $( "#registration_open" ).val( dateTime );
+
+          dateTime = $( "#registration_close_date" ).val();
+          tokens = $( "#registration_close_time" ).val().split( " " );
+          meridian = tokens[ 1 ];
+          tokens = tokens[ 0 ].split( ":" );
+          hour = parseInt( tokens[ 0 ] );
+          if ( meridian.toUpperCase() == "PM" ) {
+            if ( hour != 12 ) {
+              hour += 12;
+            }
+          } else if ( hour == 12 ) {
+            hour = 0;
+          }
+          dateTime += ' ' + hour.toString() + ':' + tokens[ 1 ] + ":00";
+          $( "#registration_close" ).val( dateTime );
+
+          errors += checkCompGroup();
+
+          if ( !checkDate( "#date", "" ) ) {
+            errors++;
+          }  
+
+          if ( !checkDate( "#registration_open_date", "#registration_open-cg" ) ) {
+            errors++;
+          }  
+          
+          if ( !checkDate( "#registration_close_date", "#registration_close-cg" ) ) {
+            errors++;
+          }  
+
+          $.each( requiredIds, function( index, field ) {              
+
+            if ( ( $( "#" + field ).val() == null ) ||
+                 ( $( "#" + field ).val().length == 0 ) ) {
+              $( "#" + field + "-cg" ).addClass( "error" );
+              errors++;
+            } else {
+              $( "#" + field + "-cg" ).removeClass( "error" );
+            }
+          });
+
+          var op = ( $( "#id" ).val() == 0 ) ? "insert" : "update";
+
+          if ( errors == 0 ) {
+
+            var event_data = $( "#event-form" ).serialize();
+
+            if ( $( "#id" ).val() == 0 ) {
+              // insert
+              $.post( "<?php echo apiHref; ?>db/events/",
+                      $( "#event-form" ).serialize(),
+                      function( eventJSON ) {
+                if ( eventJSON.id > 0 ) {
+                  $( "#success-div" ).html( "New event saved!" );
+                  $( "#success-div" ).slideDown();
+                  $( "#id" ).val( eventJSON.id );
+                  getEvents( eventJSON.id );
+                  $( "#event_id" ).val( eventJSON.id );
+                  $( "#link" ).html( "<?php echo baseHref; ?>register/" + eventJSON.id );
+                  $( "#delete-btn" ).removeAttr( 'disabled' );
+
+                } else {
+                  $( "#error-div" ).html( "Whoops, something went wrong. We were unable to add the new event." );
+                  $( "#error-div" ).slideDown();
+                }
+              });
+
+            } else {
+              // update
+              $.post( "<?php echo apiHref; ?>db/events/" + $( "#id" ).val() + "/",
+                      $( "#event-form" ).serialize(),
+                      function( eventJSON ) {
+
+                if ( eventJSON.updated == 1 ) {
+                  $( "#success-div" ).html( "Your changes have been saved." );
+                  $( "#success-div" ).slideDown();
+                  getEvents( eventJSON.id );
+                } else {
+                  $( "#error-div" ).html( "Whoops, something went wrong. We were unable to save your changes." );
+                  $( "#error-div" ).slideDown();
+                }
+              });
+            }
+
+          } else {
+            $( "#error-div" ).html( "Some required fields are incomplete or invalid. Please review the highlighted items and try again." );
+            $( "#error-div" ).slideDown();
+          }
+
+          return false;
+        }); 
+
+        $( "#time_only_reg" ).change( function() {
+          console.log( $( this ).val() );
+          var divs = $( "div[data-reg='time_only_entry_fee']" );
+          console.log( divs );
+          if ( $( this ).val() == "0" ) {
+            $( divs ).hide();
+          } else {
+            $( "div[data-reg='time_only_entry_fee']" ).slideDown();
+          }
+        });
+
+        $( "#no-btn" ).click( function() {
+          $( "#delete-div" ).slideUp();
+        });
+
+        $( "#yes-btn" ).click( function() {
+          var id = $( "#id" ).val();
+          $.post( "<?php echo apiHref; ?>db/events/" + $( "#id" ).val(),              
+            { '_method' : "delete" },
+            function( result ) {
+
+            if ( result == 1 ) {
+              $( "#event-form" ).slideUp();
+              //$( "#success-div" ).html( "Event deleted!" );
+              //$( "#success-div" ).slideDown();
+              selected = 0;
+              getEvents( selected );
+            } else {
+              $( "#error-div" ).html( "Whoops, something went wrong. We were unable to delete this event." );
+              $( "#error-div" ).slideDown();
+            }
+          });    
+        });
+
+        $("input[name^='entry_fees']").change( function() {
+          $(this).val(parseFloat($(this).val()).toFixed(2));
+        });
+
+<?php
+  if ( !empty( $_POST ) )  {
+    $args = Functions::cleanArray( $_POST );
+    if ( !empty( $args[ 'id' ] ) ) {
+      $id = intval( $args[ 'id' ] );
+?>
+        selected = <?php echo $args[ 'id' ]; ?>;
+<?php
+    }
+  }
+?>
+        getEvents( selected );
+        $( "#car_numbers" ).trigger( 'change' );
+
+      </script>
+
+<?php Display::closeBody(); ?>

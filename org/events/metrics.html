@@ -1,0 +1,265 @@
+<?php
+  require_once "../../common/Common.php";
+  require_once "../../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+        <div class="navbar">
+          <div class="navbar-inner">          
+            <p class="navbar-text pull-left">
+              <?php echo $org[ 'name' ]; ?> Events: Metrics 
+            </p>
+            <ul class="nav">
+              <li class="divider-vertical"></li>
+            </ul>
+            <form action="metrics_excel.html" class="navbar-form pull-left" id="metrics-form" method="post" name="metrics-form">
+              <select class="input-xlarge" id="event_id" name="event_id">
+              </select>
+              <button class="btn" id="download-btn">Download as Excel</button>
+            </form>
+
+         </div>
+        </div>
+
+        <div class="row-fluid">
+          <div class="span12">
+            <div id="event-info">
+            </div>
+          </div>
+        </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/dateformat-1.2.3.js" /></script>
+      <script type="text/javascript">
+      
+        var events, eventJSON, selected = 0;
+ <?php 
+   if ( !empty( $_POST ) ) {
+     $args = Functions::cleanArray( $_POST );
+     if ( !empty( $args[ 'id' ] ) &&
+          is_numeric( $args[ 'id' ] ) ) {
+ ?>
+          selected = <?php echo $args[ 'id' ]; ?>;
+ <?php 
+     }
+   }
+ ?>
+        
+        function emptyRow( colspan ) {
+        
+		      var row = $( "<tr/>" );
+    		  row.append( $( "<td/>", { 'colspan' : colspan } ) );
+	    	  return row;
+    		}
+
+        function getEvents() {
+        
+          $( "#event_id" ).empty();
+          $( "#event_id" ).append(
+            $( "<option/>", { value : 0 } ).text( "Select an Event" )
+           );
+       
+          $.getJSON( "<?php echo apiHref; ?>events/active",
+                     { 'organization_id' : <?php echo $user[ 'organization_id' ]; ?> },
+                     function( json ) {
+            events = json;
+
+            $.each( events, function( index, eventJSON ) {
+
+              eventText = eventJSON.date + ' at ' + eventJSON.site_name
+              if ( eventJSON.name != '' ) {
+                eventText = eventJSON.name + ' ' + eventText;
+              }
+              var option = $( "<option/>", { value : eventJSON.id } ).text( eventText )
+
+              if ( selected == eventJSON.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#event_id" ).append( option );
+              
+            });
+            if ( selected != 0 ) {
+              $( "#event_id" ).val( selected );
+  						$( "#download-btn" ).removeAttr( 'disabled' );
+              getEvent();
+            } else {
+  						$( "#download-btn" ).attr( 'disabled', "disabled" );
+  					}
+
+          });
+        }
+        
+        function getEvent() {
+        
+          var colspan = 7;          
+          var id = $( "#event_id" ).val();
+
+          if ( id > 0 ) {
+            $.each( events, function( index, item ) {
+              if ( item.id == id ) {
+                eventJSON = item;
+              }            
+            });
+
+            $.getJSON( "<?php echo apiHref; ?>metrics/event/" + eventJSON.id,
+                       $( "#navbar-form" ).serialize(),
+                       function( json ) {
+                       
+							$( "#event-info" ).empty();
+							
+							var table = $( "<table/>", { 'class' : "table table-bordered table-condensed table-striped" } );
+													
+							var row = $( "<tr/>" );
+							row.append( $( "<td/>" ) )
+								 .append( $( "<td/>" ).html( "Competition" ) )
+								 .append( $( "<td/>" ).html( "Time Only" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) );
+							table.append( row );
+			
+							var row = $( "<tr/>" );
+							row.append( $( "<td/>" ).html( "<strong>Total</strong>" ) )
+								 .append( $( "<td/>" ).html( json.totals[ 'Competition' ] ) )
+								 .append( $( "<td/>" ).html( json.totals[ 'Time Only' ] ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) );
+							table.append( row );
+			
+							table.append( emptyRow( colspan ) );
+
+							var row = $( "<tr/>" );
+							row.append( $( "<td/>" ) );
+							row.append( $( "<td/>" ) );
+							row.append( $( "<td/>" ) );
+
+							var typeTotals = {}
+							$.each( json.paymentTypes, function( typeName, fees ) {
+							  row.append( $( "<td/>" ).html( typeName ) );
+							  row.append( $( "<td/>" ).html( 'Amount' ) );
+							  typeTotals[ typeName ] = 0;
+							});
+
+							table.append( row );
+														
+							$.each( json.data, function( key1, values1 ) {
+								$.each( values1, function( key2, values2 ) {
+									$.each( values2, function( key3, values3 ) { 
+										row = $( "<tr/>" );
+										row.append( $( "<td/>" ).html( key1 ) )
+											 .append( $( "<td/>" ).html( key2 ) )
+											 .append( $( "<td/>" ).html( key3 ) )
+										$.each( json.paymentTypes, function( typeName, fees ) {
+											var count = json.data[ key1 ][ key2 ][ key3 ][ typeName ];							
+											var total = count * json.entryFees[ key1 ][ key2 ][ key3 ];
+											if ( json.paymentTypes[ typeName ][ key3 ] ) {
+												total += count * json.paymentTypes[ typeName ][ key3 ];
+											}
+											typeTotals[ typeName ] += total;
+
+											row.append( $( "<td/>" ).html( count ) )
+											row.append( $( "<td/>" ).html( '$ ' + total.toFixed(2).toString() ) );
+										});
+										table.append( row );
+									});
+								});
+  							table.append( emptyRow( colspan ) );
+							});
+
+							row = $( "<tr/>" );
+							row.append( $( "<td/>" ).html( "<strong>Totals</strong>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) );
+							$.each( typeTotals, function( typeName, amount ) {
+							  row.append( $( "<td/>" ) )
+							     .append( $( "<td/>" ).html( '$ ' + amount.toFixed(2).toString() ) );
+							});
+							table.append( row );
+							
+							table.append( emptyRow( colspan ) )
+
+							row = $( "<tr/>" );
+							row.append( $( "<td/>" ).html( "<strong>Discounts Applied</strong>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) );
+							table.append( row );
+							
+							$.each( json.discounts, function( index, discount ) {
+							row = $( "<tr/>" );
+								row.append( $( "<td/>" ).html( discount.entrant_name_first + ' ' + discount.entrant_name_last ) )
+									 .append( $( "<td/>" ).html( discount.comment ) )
+									 .append( $( "<td/>" ).html( discount.entry ) )
+									 .append( $( "<td/>" ) )
+									 .append( $( "<td/>" ) )
+									 .append( $( "<td/>" ) )
+									 .append( $( "<td/>" ) );
+								table.append( row );
+							});
+
+							table.append( emptyRow( colspan ) )
+
+							row = $( "<tr/>" );
+							row.append( $( "<td/>" ).html( "<strong>Electronic Payments</strong>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) )
+								 .append( $( "<td/>" ) );
+							table.append( row );
+							
+							$.each( json.payments, function( index, payment ) {
+							row = $( "<tr/>" );
+								row.append( $( "<td/>" ).html( payment.entrant_name_first + ' ' + payment.entrant_name_last ) )
+									 .append( $( "<td/>" ).html( '$ ' + parseInt( payment.amount ).toFixed(2) ) )
+									 .append( $( "<td/>" ) )
+									 .append( $( "<td/>" ) )
+									 .append( $( "<td/>" ) )
+									 .append( $( "<td/>" ) )
+									 .append( $( "<td/>" ) );
+								table.append( row );
+							})
+							
+							$( "#event-info" ).append( table );
+            });
+          }              
+        }
+        
+        $( "#event_id" ).change( function() {
+          getEvent();
+          if ( parseInt( $( "#event_id" ).val() ) == 0 ) {
+						$( "#download-btn" ).attr( 'disabled', "disabled" );
+					} else {
+						$( "#download-btn" ).removeAttr( 'disabled' );
+					}
+            
+        });
+
+        getEvents();
+        $( "#download-btn" ).attr( 'disabled', "disabled" );
+      </script>
+
+<?php Display::closeBody(); ?>

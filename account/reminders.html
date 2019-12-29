@@ -1,0 +1,145 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    if ( $user[ 'organization_id' ] != 0 ) {
+      $q = new Query( "organizations" );
+      $org = $q->selectById( $user[ 'organization_id' ] );
+    }
+  } else {
+    header( "Location: ".baseHref );    
+  }
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  $q = new Query("organizations");
+  $q->addOrder("name");
+  $orgList = $q->select();
+
+  $q = new Query("reminders");
+  $q->addWhere("entrant_id",$user['id']);
+  $rows = $q->select();
+
+  $availReminders = array(
+    'event_open' => "Event Registration Has Opened",
+    'event_close' => "Event Registration Nears Close"
+  );
+
+
+  $reminders = array();
+  foreach( $rows as $row ) {
+    $reminder = array();
+    $orgId = $row['organization_id'];
+    $reminders[$orgId] = array();
+
+    foreach(array_keys($availReminders) as $reminderKey) {
+      $reminders[$orgId][$reminderKey] = $row[$reminderKey];
+    }
+  }
+
+?>
+      <div class="page-header">
+        <h3>Email Reminders
+          <small>
+            Recieve notifications when event registrations have recently opened or are closing soon.
+          </small>
+        </h3>
+      </div>
+
+      <div class="row-fluid">
+        <div class="span12">
+
+          <form class="form-horizontal" id="info-form" name="info-form">
+            <fieldset>
+              <table class="table table bordered">
+                <thead>
+                  <tr>
+                    <th>Organization</th>
+                    <?php foreach( $availReminders as $col => $title) { ?>
+                    <th><?php echo $title; ?></th>
+                    <?php } ?>
+                  </tr>
+                </thead>
+
+                <tbody>
+                <?php foreach( $orgList as $org ) { ?>
+                  <tr>
+                    <td><?php echo $org['name']; ?></td>
+
+                    <?php
+                      foreach( $availReminders as $col => $title) {
+                        $reminding = !empty($reminders[$org['id']]) && 
+                                      !empty($reminders[$org['id']][$col]) &&
+                                      ($reminders[$org['id']][$col] == "1");
+                        $cssClass = "btn reminder-btn" . ($reminding ? " btn-success" : "");
+                        $text = ($reminding ? " On!" : "Off");
+                        $value = ($reminding ? "true" : "false");
+                    ?>
+                      <td>
+                        <button
+                          class="<?php echo $cssClass; ?>"
+                          data-organization="<?php echo $org['id']; ?>"
+                          data-reminder="<?php echo $col; ?>"
+                          value="<?php echo $value; ?>"
+                          type="button">
+                            <?php echo $text; ?>
+                        </button>
+                      </td>
+
+                    <?php } ?>
+
+                  <tr>
+                <?php } ?>
+                </tbody>
+              </table>
+            </fieldset>
+          </form>
+
+        </div>
+      </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">        
+
+        function updateReminder(org, reminder, reminding) {
+          var data = {
+            "entrant_id": <?php echo $user['id']; ?>,
+            "organization_id": org,
+          }
+          data[reminder] = (reminding ? 1 : 0);
+
+          $.post( "<?php echo apiHref; ?>reminders/",
+                    data,
+                   function( json ) {
+          });
+        }
+
+        $(".reminder-btn").click( function() {
+
+          var org = $(this).data("organization");
+          var reminder = $(this).data("reminder");
+          var reminding = $(this).val() == 'true';
+
+          if (reminding) {
+            $(this).removeClass('btn-success');
+            $(this).text("Off");
+            $(this).val("false");
+          } else {
+            $(this).addClass('btn-success');
+            $(this).text("On!");
+            $(this).val("true");
+          }
+          updateReminder(org,reminder,!reminding)
+        });
+
+      </script>
+
+<?php Display::closeBody(); ?>

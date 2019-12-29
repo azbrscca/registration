@@ -1,0 +1,356 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  $q = new Query( "registrations" );
+  /*
+    this query grabs entrant information for all
+    individuals that have registered for at least one
+    event within the organization
+
+    attempts to minimize extraneous data that the page
+    doesn't actually use with the 'only' and the join on
+  */ 
+  $q->only( "entrant_id" )
+    ->joinOn( "entrant" )
+    ->joinOn( "event", array( "id" ) )
+    ->addWhereOnJoin( "entrants", "username", "", "!=" )
+    ->addWhereOnJoin( "events", "organization_id", $org[ 'id' ] )
+    ->addOrderOnJoin( "entrants", "name_last" )
+    ->addOrderOnJoin( "entrants", "name_first" )
+    ->addOrderOnJoin( "entrants", "name_id" )
+    ->addGroupBy( "entrant_id" );
+
+  $entrants = $q->select();
+?>
+      <form class="form-horizontal" id="entrant-form" name="entrant-form">
+        <input id="entrant_id" name="entrant_id" type="hidden" value="0" />
+        <input id="organization_id" name="organization_id" type="hidden" value="<?php echo $org[ 'id' ]; ?>" />
+
+        <div class="page-header">
+          <h3>Entrant Lookup
+            <small>
+              Allows organization administrators to lookup entrant information on individuals that have
+              registered for at least one event held by the <?php echo $org[ 'name' ]; ?>
+            </small>
+          </h3>
+        </div>
+
+        <div class="row-fluid">
+          <div class="span12">
+
+            <div class="control-group">
+              <label class="control-label" for="name">Name</label>
+              <div class="controls">
+                <input class="input-xlarge" id="name" placeholder="Starting typing first or last name..." type="text" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hide" id="entrant-tabs">
+
+          <div class="tabbable">
+            <ul class="nav nav-pills">
+              <li class="active"><a href="#basic-tab" data-toggle="tab">Entrant Information</a></li>
+              <!--<li><a href="#entry-fee" data-toggle="tab">Entry Fee</a></li>-->
+            </ul>
+          </div>
+
+          <div class="tab-content">
+
+            <!-- information tab -->
+            <div class="tab-pane active" id="basic-tab">
+
+              <div class="row-fluid">
+                <div class="span12">
+                  <hr/>
+                </div>
+              </div>
+
+              <div class="row-fluid">
+                <div class="span6">
+
+                  <div class="control-group">
+                    <label class="control-label" for="name_first">First Name</label>
+                    <div class="controls">
+                      <span  class="alert alert-info" id="name_first-span"></span>
+                    </div>
+                  </div>
+  
+                  <div class="control-group">
+                    <label class="control-label" for="name_first">Last Name</label>
+                    <div class="controls">
+                      <span  class="alert alert-info" id="name_last-span"></span>
+                    </div>
+                  </div>
+  
+                  <div class="control-group">
+                    <label class="control-label" for="email">Email</label>
+                    <div class="controls">
+                      <span class="alert alert-info" id="email" name="email"></span>
+                    </div>
+                  </div>
+  
+                  <div class="control-group" id="dob-cg">
+                    <label class="control-label" for="dob">Date of Birth</label>
+                    <div class="controls">
+                      <span class="alert alert-info" id="dob" name="dob"></span>
+                    </div>
+                  </div>
+  
+                  <div class="control-group" id="address-cg">
+                    <label class="control-label" for="address">Address</label>
+                    <div class="controls">
+                      <span class="alert alert-info" id="address" name="address"></span>
+                    </div>
+                  </div>
+  
+                  <div class="control-group" id="phone_home-cg">
+                    <label class="control-label" for="phone_home">Home Phone</label>
+                    <div class="controls">
+                      <span class="alert alert-info" id="phone_home" name="phone_home"></span>
+                    </div>
+                  </div>
+  
+                  <div class="control-group" id="phone_work-cg">
+                    <label class="control-label" for="phone_work">Work Phone</label>
+                    <div class="controls">
+                    <span class="alert alert-info" id="phone_work" name="phone_work"></span>
+                    </div>
+                  </div>
+  
+                </div>
+                <div class="span6">
+  
+                  <div class="control-group" id="scca_number-cg">
+                    <label class="control-label" for="scca_number">SCCA Member Number</label>
+                    <div class="controls">
+                      <span class="alert alert-info" id="scca_number" name="scca_number"></span>
+                    </div>
+                  </div>
+  
+                  <div class="control-group" id="scca_date-cg">
+                    <label class="control-label" for="scca_date">SCCA Expiry Date</label>
+                    <div class="controls">
+                      <span class="alert alert-info" id="scca_date" name="scca_date"></span>
+                    </div>
+                  </div>
+  
+                  <div class="control-group" id="emer_name-cg">
+                    <label class="control-label" for="emer_name">Emergency Contact Name</label>
+                    <div class="controls">
+                      <span class="alert alert-info" id="emer_name" name="emer_name"></span>
+                    </div>
+                  </div>
+  
+                  <div class="control-group" id="emer_phone-cg">
+                    <label class="control-label" for="emer_phone">Emergency Contact Phone Number</label>
+                    <div class="controls">
+                      <span class="alert alert-info" id="emer_phone" name="emer_phone"></span>
+                    </div>
+                  </div>
+  
+                </div><!-- / span -->
+              </div>
+            </div>
+            <!-- / contact information tab -->
+
+            <!-- entry fee tab -->
+            <div class="tab-pane" id="entry-fee">
+              <input id="discount_id" name="discount_id" type="hidden" value="0" />
+              <div class="row-fluid">
+                <div class="span12">
+
+                  <div class="well well-small">
+                    Select 'Discount' and enter an amount for the amount to be deducted from the entrant's regular entry fee.<br/>
+                    Select 'Special Rate' and enter an amount for the amount to replace the entrant's regular entry fee.
+                  </div>
+
+                  <div class="control-group">
+                    <label class="control-label" for="discount_comp">Competition</label>
+                    <div class="controls">
+                      <select class="input-medium" data-part="discount" id="discount_comp_type" name="comp_type">
+                        <option value="0" selected>None</option>
+                        <option value="1">Discount</option>
+                        <option value="2">Special Rate</option>
+                      </select> &nbsp;
+                      <div class="input-prepend">
+                        <span class="add-on">$</span>
+                        <input class="input-mini" data-part="discount" id="discount_comp_amount" name="comp_amount" type="text" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="control-group">
+                    <label class="control-label" for="discount_to">Time Only</label>
+                    <div class="controls">
+                      <select class="input-medium" data-part="discount" id="discount_to_type" name="to_type">
+                        <option value="0" selected>None</option>
+                        <option value="1">Discount</option>
+                        <option value="2">Special Rate</option>
+                      </select> &nbsp;
+                      <div class="input-prepend">
+                        <span class="add-on">$</span>
+                        <input class="input-mini" data-part="discount" id="discount_to_amount" name="to_amount" type="text" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="control-group" id="discount_comment-cg">
+                    <label class="control-label" for="discount_comment">Comment</label>
+                    <div class="controls">
+                      <input class="input-xlarge" data-part="discount" id="discount_comment" name="comment" type="text" />
+                    </div>
+                  </div>
+
+                  <div class="alert alert-error hide" id="entryfee-error-div"></div>
+                  <div class="alert alert-success hide" id="entryfee-success-div"></div>
+
+                	<div class="form-actions">
+                  	<button class="btn btn-primary" id="save-entry-fee-btn" type="button">Save Entry Fee</button>
+                	</div>
+                </div>
+              </div>
+            </div>
+            <!-- / entry fee tab -->
+
+          </div><!-- / tab-content -->
+        </div><!-- / hidden div -->
+
+			</form>
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+
+        var entrants = $.parseJSON( "<?php echo addslashes( json_encode( $entrants ) ); ?>" );
+        var entrant = {}
+
+        function populate( i ) {
+          $( "#entryfee-error-div" ).slideUp();
+          $( "#entryfee-succes-div" ).slideUp();
+
+          $( "#id-span" ).html( i.entrant_id );
+          $( "#entrant_id" ).val( i.entrant_id );
+          $( "#name_first-span" ).html( i.entrant_name_first );
+          $( "#name_last-span" ).html( i.entrant_name_last );
+          $( "#email" ).html( i.entrant_email );
+          $( "#dob" ).html( i.entrant_dob );
+          $( "#address" ).html( i.entrant_address_street + " " + i.entrant_address_city + ", " + i.entrant_address_state + " " + i.entrant_address_zip );
+          $( "#phone_home" ).html( i.entrant_phone_home );
+          $( "#phone_work" ).html( i.entrant_phone_work );
+
+          $( "#scca_number" ).html( i.entrant_scca_number );
+          $( "#scca_date" ).html( i.entrant_scca_date );
+          $( "#emer_name" ).html( i.entrant_emer_name );
+          $( "#emer_phone" ).html( i.entrant_emer_phone );
+        }
+
+        $( "#name" ).typeahead({ 
+
+          items: 12,
+
+          source: function (query, process) {
+            names = [];
+            map = {};
+ 
+            $.each(entrants, function (i, entrant) {
+              name = entrant.entrant_name_first + ' ' + entrant.entrant_name_last + ' (' + entrant.entrant_id + ')';
+              map[name] = entrant
+              names.push( name );
+            });
+            process(names);
+          },
+
+          matcher: function (item) {
+            if (item.toLowerCase().indexOf(this.query.trim().toLowerCase()) != -1) {
+              return true;
+            }
+          },
+
+          updater: function( item ) {
+            $( "#error-div" ).slideUp();
+            $( "#success-div" ).slideUp();
+
+            var tokens = item.split( ' ' )
+            var id = tokens[ tokens.length - 1 ];
+            var entrant = map[ item ];
+            populate( entrant );
+
+            $.getJSON( "<?php echo apiHref; ?>db/discounts/",
+                      { 'entrant_id' : entrant.entrant_id, 'organization_id' : <?php echo $org[ 'id' ]; ?> },
+                      function( json ) {
+
+              if ( json.length == 1 ) {
+                $( "#discount_id" ).val( json[0].id );
+                var discount = $.parseJSON( json[0].discount );
+                $.each( discount, function( key, value ) {
+                  $( "#discount_" + key ).val( value );
+                });
+              } else {
+                $( "#discount_id" ).val( 0 );
+                $( "#discount_comp_amount" ).val( "0.00" );
+                $( "#discount_comp_type" ).val( 0 );
+                $( "#discount_to_amount" ).val( "0.00" );
+                $( "#discount_to_type" ).val( 0 );
+                $( "#discount_comment" ).val( "" );
+              }
+            });
+
+            $( "#entrant-tabs" ).slideDown();
+
+            return $( "<div/>" ).html( item ).text();
+          }
+        });
+
+
+
+        $( "#save-entry-fee-btn" ).click( function() {
+
+          $( "#entryfee-error-div" ).slideUp();
+          $( "#entryfee-success-div" ).slideUp();
+
+          var discount = {};
+          $.each( $( "[data-part='discount']" ), function( i, item ) {
+            discount[ $( item ).attr( 'name' ) ] = $( item ).val();
+          });
+
+          $.post( "<?php echo apiHref; ?>db/discounts/" + $( "#discount_id" ).val(),
+                  { 'entrant_id' : $( "#entrant_id" ).val(),
+                    'organization_id' : $( "#organization_id" ).val(),
+                    'discount' : discount },
+                  function( response ) {
+            var success = ( ( $( "#discount_id" ).val() == "0" ) &&
+                            ( response.id != 0 ) ) ||
+                            ( response.updated &&
+                              ( response.updated == 1 ) );
+            if ( success ) {
+              $( "#entryfee-success-div" ).html( "Entry fee saved!" );
+              $( "#entryfee-success-div" ).slideDown();
+              $( "#discount_id" ).val( response.id );
+            } else {
+              $( "#entryfee-error-div" ).html( "Failed to save entry fee!" );
+              $( "#entryfee-error-div" ).slideDown();
+            }
+          });
+        });
+
+      </script>
+
+<?php Display::closeBody(); ?>

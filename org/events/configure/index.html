@@ -1,0 +1,91 @@
+<?php
+  require_once "../../../common/Common.php";
+  require_once "../../../db/Query.php";
+  
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  $privs = json_decode( $org[ 'privileges' ] );  
+?>
+        <div class="navbar">
+          <div class="navbar-inner">
+            <p class="navbar-text pull-left">
+              <?php echo $org[ 'name' ]; ?> Event Configuration
+            </p>
+            <ul class="nav">
+              <li class="divider-vertical"></li>
+            </ul>
+            <form action="one.html" class="navbar-form pull-left" method="post">
+              <select class="span4" id="event_id" name="event_id">
+              </select>
+<?php if ( $privs->configuration == "true" ) { ?>
+              <button class="btn btn-primary" id="configure-btn" disabled>Configure Event</button>
+<?php } ?>
+            </form>
+
+          </div>
+        </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+      
+        function getEvents() {
+        
+          var selected = $( "#event_id" ).val();
+          $( "#event_id" ).empty();
+          $( "#event_id" ).append(
+            $( "<option/>", { value : 0 } ).text( "Select an Event" )
+           );
+           
+           // SWITCH TO UPCOMING
+       
+          $.getJSON( "<?php echo apiHref; ?>events/past/",
+                     { "organization_id" : <?php echo $user[ 'organization_id' ]; ?> },
+                     function( events ) {
+
+            $.each( events, function( index, eventJSON ) {
+
+              eventText = eventJSON.date + ' at ' + eventJSON.site_name
+              if ( eventJSON.name != '' ) {
+                eventText = eventJSON.name + ' ' + eventText;
+              }
+              var option = $( "<option/>", { value : eventJSON.id } ).text( eventText )
+              if ( selected == eventJSON.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#event_id" ).append( option );
+            });
+          });
+        }
+
+        $( "#event_id" ).change( function() {
+        
+          var eventId = parseInt( $( this ).val() );
+          
+          if ( eventId == 0 ) {
+            $( "#configure-btn" ).attr( 'disabled', "disabled" );
+          } else {
+            $( "#configure-btn" ).removeAttr( 'disabled' );
+		  }
+        });
+        
+        getEvents();
+
+      </script>
+
+<?php Display::closeBody(); ?>

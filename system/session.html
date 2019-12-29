@@ -1,0 +1,97 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+
+  $args = Array();
+  if ( !empty( $_POST ) ) {
+    $args = Functions::cleanArray( $_POST );
+
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $args[ 'organization_id' ] );
+    if ( $org != null ) {
+      $q = new Query( "entrants" );
+      $user[ 'organization_id' ] = $args[ 'organization_id' ];
+      if ( $q->updateById( $user ) == 1 ) {
+        $args[ 'success' ] = "Organization changed.";
+      } else {
+        $args[ 'error' ] = "Failed to change organization.";
+      }
+    }
+  }
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+      <div class="page-header">
+        <h3>Account Organization
+          <small>
+          </small>
+        </h3>
+      </div>
+
+      <div class="row-fluid">
+        <div class="span12">
+
+          <form action="#" class="form-horizontal" method="post">
+            <fieldset>
+
+              <div class="control-group">
+                <label class="control-label" for="organization_id">Organization</label>
+                <div class="controls">
+                  <select id="organization_id" name="organization_id">
+                  </select>
+                </div>
+              </div>
+
+			  <div class="alert alert-error hide" id="error-div">
+			  </div>
+			  <div class="alert alert-success hide" id="success-div">
+			  </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="save-btn" type="submit">Save Changes</button>
+                <button class="btn" id="clear-btn" type="clear">Clear Changes</button>
+              </div>
+
+            </fieldset>
+          </form>
+
+        </div>
+      </div>
+
+<?php Display::closeContainer(); ?>
+
+        <script type="text/javascript">
+
+          $.getJSON( "<?php echo apiHref; ?>db/organizations",
+                     { 'order' : "name" },
+                     function( json ) {
+            $.each( json, function( index, item ) {
+              $( "#organization_id" ).append( 
+                $( "<option/>", { value : item.id } ).text( item.name )
+              );
+              $( "#organization_id" ).val( <?php echo $user[ 'organization_id' ]; ?> );
+            });
+          });
+<?php if ( !empty( $args[ 'success' ] ) ) { ?>
+          $( "#success-div" ).html( "<?php echo $args[ 'success' ]; ?>" ).slideDown();
+<?php } else if ( !empty( $args[ 'error' ] ) )  { ?>
+          $( "#error-div" ).html( "<?php echo $args[ 'error' ]; ?>" ).slideDown();
+<?php } ?>         
+        </script>
+
+<?php Display::closeBody(); ?>

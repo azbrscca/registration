@@ -1,0 +1,447 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+      <div class="navbar">
+        <div class="navbar-inner">
+          <p class="navbar-text pull-left">
+            <?php echo $org[ 'name' ]; ?> Series
+          </p>
+          <ul class="nav">
+            <li class="divider-vertical"></li>
+          </ul>
+          <form class="navbar-form pull-left">
+            <select class="span4" id="series_id">
+            </select>
+
+            <button class="btn" id="add-btn" type="button"><i class="icon-plus"></i></button>
+              
+          </form>
+          <ul class="nav">
+            <li class="divider-vertical"></li>
+          </ul>
+
+       </div>
+      </div>
+
+        <form class="form-horizontal hide" id="series-form" name="series-form">
+          <input id="id" name="id" type="hidden" value="0" />
+          <input name="organization_id" type="hidden" value="<?php echo $user[ 'organization_id' ]; ?>" />
+
+          <div class="row-fluid">
+            <div class="span6">
+
+                <div class="control-group" id="name-cg">
+                  <label class="control-label" for="name">Name</label>
+                  <div class="controls">
+                    <input class="input-large" id="name" name="name" placeholder="Name" type="text" />
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+                
+                <div class="control-group" id="results-cg">
+                  <label class="control-label" for="results">Results</label>
+                  <div class="controls">
+                    <select class="input-medium" id="results" name="results">
+                      <option value="0">Private</option>
+                      <option value="1">Public</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="control-group" id="completed-cg">
+                  <label class="control-label" for="completed">Series Status</label>
+                  <div class="controls">
+                    <select class="input-medium" id="completed" name="completed">
+                      <option value="0">Not Ended</option>
+                      <option value="1">Ended</option>
+                    </select>
+                  </div>
+                </div>
+
+            </div>
+
+            <div class="span6">
+              <div id="series_events">
+              </div>
+<?php
+  $q = new Query( "events" );
+  $events = $q->addWhere( 'organization_id', $user[ 'organization_id' ] )
+              ->addOrder( 'date', 'desc' )
+              ->select();
+?>              
+              <div class="control-group" id="events-cg">
+                <label class="control-label" for="event_id">Add Events to this Series</label>
+                <div class="controls">
+                  <select class="input-xlarge" id="event_id">
+                    <option value="0">Select an Event</option>
+<?php foreach( $events as $event ) { ?>
+                    <option value="<?php echo $event[ 'id' ]; ?>"><?php if ( !empty( $event[ 'name' ] ) ) { echo $event[ 'name' ].' '; } echo $event[ 'date' ]; ?></option>
+<?php } ?>
+                  </select>
+                  <button class="btn" id="add-event-btn" type="button"><i class="icon-plus"></i></button>
+                </div>
+              </div>
+              
+              <div class="alert alert-error hide" id="event-error-div">
+              </div>
+              
+            </div>
+
+          </div>
+
+          <div class="row-fluid">
+            <div class="span12">
+			  <div class="alert alert-error hide" id="error-div">
+			  </div>
+			  <div class="alert alert-success hide" id="success-div">
+			  </div>          
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="save-btn" type="button">Save Changes</button>
+                <button class="btn" id="clear-btn" type="button">Clear Changes</button>
+                <button class="btn btn-warning" id="delete-btn" type="button">Delete</button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+        var series;
+
+        var requiredIds = Array();
+        $( ".control-group" ).each( function() {
+          var id;
+          $( this ).find( ".control-label" ).each( function() {
+            id = $( this ).attr( 'for' );
+          });
+        
+          var required = false;
+          $( this ).find( ".label" ).each( function() {
+            if ( $( this ).html().indexOf( 'Required' ) !== false ) {
+              requiredIds[ requiredIds.length ] = id;
+            }
+          });
+        });
+
+        $( ".btn" ).click( function() {
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+          if ( $( this ).attr( 'id' ) != "delete-btn" ) {
+            $( "#delete-btn" ).removeClass( 'btn-danger' ).html( 'Delete' );
+          }
+        }); 
+
+        $( "#add-btn" ).click( function() {
+          $( "#id" ).val( 0 );
+          $( "#name" ).val( '' );
+
+          $( "#event_id" ).attr( 'disabled', "true" );
+          $( "#add-event-btn" ).attr( 'disabled', "true" );
+          $( "#event-error-div" ).html( "Events can only be a series until after the series is initially saved." );
+          $( "#event-error-div" ).slideDown();
+          $( "#series_events" ).empty();
+
+
+          if ( $( "#series-form" ).is( ":hidden" ) ) {
+            $( "#series-form" ).slideDown();
+          }
+            
+          $( "#delete-btn" ).attr( 'disabled', "true" );
+        });
+        
+
+
+        $( "#add-event-btn" ).click( function() {
+        
+          var event_id = parseInt( $( "#event_id" ).val() );
+          var series_id = parseInt( $( "#series_id" ).val() );
+          $( "#event-error-div" ).slideUp();
+
+          if ( event_id != 0 ) {
+          
+            var text = $( "#event_id option:selected" ).text();
+
+            $.getJSON( "<?php echo apiHref; ?>/db/series_events",
+                       { 'event_id' : event_id, 'series_id' : series_id },
+                       function( json ) {
+              if ( json.length > 0 ) {
+                $( "#event-error-div" ).html( "Event has already been added to this series." );
+                $( "#event-error-div" ).slideDown();
+              } else {
+                $.post( "<?php echo apiHref; ?>db/series_events",
+                           { 'event_id' : event_id, 'series_id' : series_id },
+                           function( se ) {
+                  if ( se.id > 0 ) {
+                    var div = $( "<div/>", 
+                                 { 'class' : 'well well-small',
+                                   'id' : "div-" + se.id } );
+                    div.append(
+                      $( "<button/>", { 'class' : "btn btn-small btn-warning",
+                                        'data-event' : se.event_id,
+                                        'data-series' : se.series_id,
+                                        'data-id' : se.id,
+                                        'type' : "button", })
+                        .html( "Remove" )
+                        .on( 'click', function() { removeEvent( this ); } )
+                    ).append( text );
+                    $( "#series_events" ).append( div );
+                    update_series_date(series_id);
+                  }
+                });
+              }
+            });
+          }
+        });
+          
+        $( "#clear-btn" ).click( function() {
+          getSeries( $( "#id" ).val() );
+        });
+
+        $( "#delete-btn" ).click( function() {
+
+          if ( $( this ).hasClass( 'btn-danger' ) ) {
+
+            $( this ).removeClass( 'btn-danger' ).html( 'Delete' );
+            var id = $( "#id" ).val();
+            $.delete( "<?php echo apiHref; ?>db/series/" + $( "#id" ).val(), function( result ) {
+              if ( result == 1 ) {
+                $.getJSON( "<?php echo apiHref; ?>db/series_events/",
+                          { 'series_id' : id },
+                          function( series_events ) {
+                  $.each( series_events, function( index, se ) {
+                    $.delete( "<?php echo apiHref; ?>db/series_events/" + se.id );
+                  });
+                });
+              
+                $( "#series-form" ).slideUp();
+                getAllSeries();
+                $( "#success-div" ).html( "Series deleted!" );
+                $( "#success-div" ).slideDown();
+              } else {
+                $( "#error-div" ).html( "Whoops, something went wrong. We were unable to delete that item." );
+                $( "#error-div" ).slideDown();
+              }
+            });    
+          } else {
+            $( this ).addClass( 'btn-danger' ).html( 'Permanently delete this series?' );
+          }
+
+        });
+
+        $( "#series_id" ).change( function() {
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+          $( "#delete-btn" ).removeClass( 'btn-danger' ).html( 'Delete' );
+          $( "#delete-btn" ).removeAttr( 'disabled' );
+
+          if ( parseInt( $( "#series_id" ).val() ) == 0 ) {
+            $( "#series-form" ).slideUp();
+          } else {
+            getSeries( $( this ).val() );
+          }
+        });
+
+        $( "#save-btn" ).click( function() {
+
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+
+          var errors = 0;
+          $.each( requiredIds, function( index, field ) {              
+
+            if ( ( $( "#" + field ).val() == null ) ||
+                 ( $( "#" + field ).val().length == 0 ) ) {
+              $( "#" + field + "-cg" ).addClass( "error" );
+              errors++;
+            } else {
+              $( "#" + field + "-cg" ).removeClass( "error" );
+            }
+          });
+
+          var op = ( $( "#id" ).val() == 0 ) ? "insert" : "update";
+
+          if ( errors == 0 ) {
+            
+            if ( $( "#id" ).val() == 0 ) {
+              // insert
+              $.post( "<?php echo apiHref; ?>db/series/",
+                      $( "#series-form" ).serialize(),
+                      function( series ) {
+
+                if ( series.id > 0 ) {
+                  $( "#id" ).val( series.id );
+                  $( "#delete-btn" ).removeAttr( 'disabled' );
+                  $( "#success-div" ).html( "New series saved!" );
+                  $( "#success-div" ).slideDown();
+                  $( "#event-error-div" ).slideUp();
+                  getAllSeries();
+                  getSeries( series.id );
+                } else {
+                 $( "#error-div" ).html( "Whoops, something went wrong. We were unable to add the new series." );
+                  $( "#error-div" ).slideDown();
+                }
+              });
+
+            } else {
+              // update
+              $.post( "<?php echo apiHref; ?>db/series/" + $( "#id" ).val() + "/",
+                      $( "#series-form" ).serialize(),
+                      function( series ) {
+
+                if ( series.updated == 1 ) {
+                  $( "#success-div" ).html( "Your changes have been saved." );
+                  $( "#success-div" ).slideDown();
+                  getAllSeries();
+                  getSeries( series.id );
+                } else {
+                  $( "#error-div" ).html( "Whoops, something went wrong. We were unable to save your changes." );
+                  $( "#error-div" ).slideDown();
+                }
+              });
+            }
+
+          } else {
+            $( "#error-div" ).html( "Some required fields are empty, please complete them and try again." );
+            $( "#error-div" ).slideDown();
+          }
+
+          return false;
+        });      
+
+        function getAllSeries() {
+        
+          var selected = $( "#id" ).val();
+          $( "#series_id" ).empty();
+          $( "#series_id" ).append(
+            $( "<option/>", { value : 0 } ).text( "Select a Series" )
+           );
+       
+          $.getJSON( "<?php echo apiHref; ?>db/series/",
+                     { 'organization_id' : <?php echo $user[ 'organization_id' ]; ?>,
+                       'order' : "date_created-desc" },
+                     function( json ) {
+            series = json;
+
+            $.each( series, function( index, item ) {
+              var option = $( "<option/>", { value : item.id } ).text( item.name )
+              if ( selected == item.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#series_id" ).append( option );
+            });
+          });
+        }
+
+        function getSeries( id ) {
+        
+          $.getJSON( "<?php echo apiHref; ?>db/series/" + id,
+                     function( s ) {
+
+            if ( $( "#series-form" ).is( ":hidden" ) ) {
+              $( "#series-form" ).slideDown();
+            }
+
+            $.each( s, function( key, val ) {
+              if ( $( "#" + key ).length > 0 ) {
+                $( "#" + key ).val( val );
+              }
+            });
+          
+            if ( s.completed == 1 ) {
+              $( "#event_id" ).attr( 'disabled', "true" );
+              $( "#add-event-btn" ).attr( 'disabled', "true" );
+            } else {
+              $( "#event_id" ).removeAttr( 'disabled' );
+              $( "#add-event-btn" ).removeAttr( 'disabled' );
+            }
+          
+            $( "#series_events" ).empty();
+            $( "#series_events" ).append( $( "<h4/>" ).html( "Events in this Series" ) );
+            $.getJSON( "<?php echo apiHref; ?>db/series_events/",
+                       { 'series_id' : s.id, 'order' : "date_created-desc" },
+                       function( s_events ) {
+              $.each( s_events, function( index, se ) {
+            
+                var div = $( "<div/>", 
+                             { 'class' : 'well well-small',
+                               'id' : "div-" + se.id } );
+                if ( s.completed == 0 ) {
+                  div.append(
+                    $( "<button/>", { 'class' : "btn btn-small btn-warning",
+                                      'data-event' : se.event_id,
+                                      'data-series' : se.series_id,
+                                      'data-id' : se.id,
+                                      'type' : "button", })
+                      .html( "Remove" )
+                      .on( 'click', function() { removeEvent( this ); } )
+                  );
+                }
+
+                $.getJSON( "<?php echo apiHref; ?>db/events/" + se.event_id,
+                           function( event ) {
+                  var text = ' ' + event.date;
+                  if ( event.name != "" ) {
+                    text = event.name + ' '+ text;
+                  }
+                  div.append( text );
+                });
+
+                $( "#series_events" ).append( div );
+            
+              });
+            });
+          });
+        }
+
+        function removeEvent( button ) {
+          $( "#event-error-div" ).slideUp();
+
+          if ( $( button ).hasClass( 'btn-danger' ) ) {
+            var event_id = $( button ).data( 'event' );
+            var id = $( button ).data( 'id' );
+            var series_id = $( button ).data( 'series' );
+            
+            $.post( "<?php echo apiHref; ?>db/series_events/" + id,
+              { '_method' : "delete" },
+              function( result ) {
+              
+              if ( result == 1 ) {
+                $( "#div-" + id ).remove();
+              }
+              update_series_date( series_id );
+
+            });    
+          } else {
+            $( button ).addClass( 'btn-danger' ).html( 'Remove this event from the series?' );
+          }
+        }
+
+        function update_series_date( series_id ) {
+          $.post( "<?php echo apiHref; ?>series/" + $( "#id" ).val() + "/" );
+        }
+        
+        getAllSeries();
+        
+        </script>
+
+<?php Display::closeBody(); ?>

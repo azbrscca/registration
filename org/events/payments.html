@@ -1,0 +1,255 @@
+<?php
+  require_once "../../common/Common.php";
+  require_once "../../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+        <div class="navbar">
+          <div class="navbar-inner">          
+            <p class="navbar-text pull-left">
+              <?php echo $org[ 'name' ]; ?> Events: Payments
+            </p>
+            <ul class="nav">
+              <li class="divider-vertical"></li>
+            </ul>
+            <form class="navbar-form pull-left" id="navbar-form" name="navbar-form">
+              <select class="input-xlarge" id="event_id">
+              </select>              
+
+              <input name="order" type="hidden" value="entrant_name" />
+              </select>              
+
+            </form>
+
+         </div>
+        </div>
+
+        <div class="row-fluid">
+          <div class="span12">
+            <div id="event-info">
+            </div>
+          </div>
+        </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/dateformat-1.2.3.js" /></script>
+      <script type="text/javascript">
+      
+        var events, eventJSON, selected = 0, registrations, payments;
+ <?php 
+   if ( !empty( $_POST ) ) {
+     $args = Functions::cleanArray( $_POST );
+     if ( !empty( $args[ 'id' ] ) &&
+          is_numeric( $args[ 'id' ] ) ) {
+ ?>
+        selected = <?php echo $args[ 'id' ]; ?>;
+ <?php 
+     }
+   }
+ ?>
+        function getEvents() {
+        
+          $( "#event_id" ).empty();
+          $( "#event_id" ).append(
+            $( "<option/>", { value : 0 } ).text( "Select an Event" )
+           );
+       
+          $.getJSON( "<?php echo apiHref; ?>events/active",
+                     { 'organization_id' : <?php echo $user[ 'organization_id' ]; ?> },
+                     function( json ) {
+            events = json;
+
+            $.each( events, function( index, eventJSON ) {
+
+              eventText = eventJSON.date + ' at ' + eventJSON.site_name
+              if ( eventJSON.name != '' ) {
+                eventText = eventJSON.name + ' ' + eventText;
+              }
+              var option = $( "<option/>", { value : eventJSON.id } ).text( eventText )
+              if ( selected == eventJSON.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#event_id" ).append( option );
+            });
+            if ( selected != 0 ) {
+              getEvent();
+            }
+          });
+        }
+        
+        function getEvent() {
+          
+          var id = $( "#event_id" ).val()
+
+          if ( id > 0 ) {
+            $.each( events, function( index, r ) {
+              if ( r.id == id ) {
+                eventJSON = r;
+              }            
+            });
+
+            $.getJSON( "<?php echo apiHref; ?>registrations/event/" + eventJSON.id,
+                       $( "#navbar-form" ).serialize(),
+                       function( json ) {
+              registrations = json;
+              showList(); 
+            });
+
+
+          }              
+        }
+        
+        function savePayment( button ) {
+          var entrant_id = $( button ).data( 'entrant' );
+          var event_id = $( button ).data( 'event' );
+          var registration_id = $( button ).data( 'registration' );
+          var payment_id = $( button ).data( 'payment' );
+          
+          var amount = parseFloat( $( "#payment-for-" + registration_id ).val() );
+          amount = amount.toFixed(2);
+          $( "#payment-for-" + registration_id ).val( amount );
+          var status = $( "#payment-status-" + registration_id );
+          
+          status.empty();
+          
+          if ( payment_id == 0 ) {
+            if ( amount == 0 ) {
+              status.html(
+                $( "<p/>", { 'class' : "text-warning" } ).append( " No amount entered." ) 
+              );
+            } else {
+              $.post( "<?php echo apiHref; ?>db/payments/",
+                      { 'amount' : amount,
+                        'entrant_id' : entrant_id,
+                        'event_id' : event_id, },
+                      function( payment ) {
+                if ( payment.id == 0 ) {
+                  status.html(
+                    $( "<p/>", { 'class' : "text-error" } ).append( " Failed to save payment." )
+                  );
+                } else {
+                  $( button ).data( 'payment', payment.id );
+                  $.post( "<?php echo apiHref; ?>/db/registrations/" + registration_id,
+													{ 'payment_id' : payment.id },
+													function( json ) {});
+                  status.html(
+                    $( "<p/>", { 'class' : "text-success" } ).append( " Payment saved." )
+                  );
+                }
+              });
+            }
+          } else {
+            $.post( "<?php echo apiHref; ?>db/payments/" + payment_id,
+                    { 'amount' : amount, },
+                    function( payment ) {
+              if ( payment.updated == 1 ) {
+                status.html(
+                  $( "<p/>", { 'class' : "text-success" } ).append( " Payment updated." ) 
+                );
+              } else {
+                status.html(
+                  $( "<p/>", { 'class' : "text-error" } ).append( " Failed to update payment." )
+                );
+              }
+            });
+          }
+        }
+
+        function showList() {
+
+          $( "#event-info" ).empty();
+          $( "#event-info" ).append(
+            $( "<h3/>", { 'class' : "well" } ).
+               html( eventJSON.organization_name + ' ' + eventJSON.name + ' ' + eventJSON.date + ' ' + eventJSON.site_name )
+          );
+          
+          var table = $( "<table/>", { 'class' : "table table-hover" } );
+ 
+          $.each( registrations, function( index, r ) {
+            row = $( "<tr/>" );
+            
+            row.append( $( "<td/>", { 'class' : "span1" } ).append( index+1 ) )
+              .append( $( "<td/>" ).append( r.entrant_name_last + ', ' + r.entrant_name_first ) )
+              .append( $( "<td/>" ).append( r.entrant_email ) );
+
+      
+            var cell = $( "<td/> ");
+            cell.append( "SCCA Member: " );
+            if ( r.entrant_scca_status == 1 ) {
+              cell.append( "Yes" );
+            } else { 
+              cell.append( "No" );
+            }
+            row.append( cell );
+
+            row.append( $( "<td/>" ).append( "Time Only: " + ( r.time_only_reg == 1 ? "Yes" : "No" ) ) )
+                .append( $( "<td/>" )
+                .append( "Entry Fee: " )
+                .append( $("<i/>",{'class':"icon-usd"}) )
+                .append( " " )
+                .append( parseFloat( r.entry_fee ).toFixed( 2 ) ) );
+
+            var input = $( "<input/>",
+                           { 'class' : "input-small",
+                             'id' : 'payment-for-' + r.id,
+                             'type' : 'text',
+                           });
+            var button = $( "<button/>",
+                           { 'class' : "btn",
+                             'data-entrant' : r.entrant_id,
+                             'data-event' : eventJSON.id,
+                             'data-registration' : r.id,
+                             'data-payment' : r.payment_id
+                           })
+                           .html( 'Save' )
+                           .on( 'click', function() { savePayment( this ); } );
+
+            row.append( $( "<td/>" )
+                          .append( $( "<div/>", { 'class' : "input-prepend" } )
+                            .append( $( "<span/>", { 'class' : "add-on" } )
+                              .append( $("<i/>",{'class':"icon-usd"}) )
+                            )
+                            .append( input )
+                          ) );
+            row.append( $( "<td/>" ).append( button ) );
+            row.append( $( "<td/>", { 'id' : "payment-status-" + r.id } ) );
+
+            if ( r.payment_id > 0 ) {
+              $.getJSON( "<?php echo apiHref; ?>db/payments/" + r.payment_id,
+                         function( payment ) {
+                input.val( parseFloat( payment.amount ).toFixed( 2 ) );
+              });
+            } else {
+              input.val( parseFloat( "0.00" ).toFixed( 2 ) );
+            }
+
+            table.append( row );
+          });
+          
+          $( "#event-info" ).append( table );
+        }
+
+        getEvents();
+        
+        $( "#event_id" ).change( function() {
+          getEvent();
+        });
+      </script>
+
+<?php Display::closeBody(); ?>

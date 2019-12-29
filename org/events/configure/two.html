@@ -1,0 +1,187 @@
+<?php
+  require_once "../../../common/Common.php";
+  require_once "../../../db/Query.php";
+
+  require_once "common.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  $redirect = true;
+  $q = new Query( "events" );
+  $q->joinOn( "site" );
+
+  if ( !empty( $_SESSION[ 'event_id' ] ) ) {
+    $event = $q->selectById( $_SESSION[ 'event_id' ] );
+    if ( !empty( $event ) &&
+         ( $event[ 'organization_id' ] == $user[ 'organization_id' ] ) ) {
+      $redirect = false;
+    }
+  }
+
+  if ( $redirect ) {
+    header( "Location: index.html" );
+  }    
+
+  $config = json_decode( $event[ 'configuration' ], true );
+
+  if ( ( $config == null ) || empty( $config ) ) {
+    $config = array(
+      'comp_groups' => array(),
+      'to_groups' => array(),
+      'work_order' => array()
+    );
+  }
+  
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+<?php configureNav( $event, $org ); ?>
+
+        <div class="row-fluid">
+
+<?php configurePills(); ?>
+
+          <div class="span9" id="configure-div">
+
+<?php if ( $event[ 'run_groups' ] == 0 ) { ?>
+
+            <div class="alert alert-error" id="error-div">Run Group Structure must be configured before Run / Work Order.</div>
+
+<?php } else { ?>
+            <form class="form-horizontal" id="event-form" name="event-form">
+  <?php for( $g=1; $g <= $event[ 'run_groups' ]; $g++ ) { ?>
+
+              <div class="control-group">
+                <label class="control-label">Run Group <?php echo chr( $g + 64 ); ?></label>
+                <div class="controls">
+                  <select class="input-medium" data-id="<?php echo $g; ?>" id="work_group_<?php echo $g; ?>">
+<?php
+        for( $opt=1; $opt <= $event[ 'run_groups' ]; $opt++ ) {
+        if ( $opt != $g ) {
+?>
+                  <option value="<?php echo $opt; ?>">Works <?php echo chr( $opt + 64 ); ?></option>
+<?php 
+          }
+        }
+?>
+                  </select>
+                  
+                  <select class="input-xlarge" data-id="<?php echo $g; ?>" id="group_type_<?php echo $g; ?>">
+                    <option value="1">Competition Runs</option>
+  <?php if ( $g >1 ) { ?>
+                    <option value="2">Time Only Runs</option>
+                    <option value="3">Competition & Time Only Runs</option>
+  <?php } ?>
+                  </select>
+                  
+                  
+                </div>
+              </div>
+
+
+<?php   } ?>
+			  <div class="alert alert-error hide" id="error-div">Whoops, something went wrong. We were unable to save your changes.</div>
+			  <div class="alert alert-success hide" id="success-div">Your changes have been saved.</div>
+              
+              <div class="form-actions">
+                <button class="btn btn-primary" id="save-btn" type="button">Save Changes</button>
+                <button class="btn" id="clear-btn" type="button">Clear Changes</button>
+              </div>              
+
+            </form>
+<?php } ?>
+          </div>
+
+        </div>
+
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+
+        var config = jQuery.parseJSON( '<?php echo json_encode( $config ); ?>' );
+        console.log( config );
+
+        if ( config.length ==  0 ){
+          config = {
+            comp_groups : [],
+            to_groups: [],
+            work_order : {},
+          }
+        }
+       
+        function parseConfig() {
+          var groupTypes = {};
+       
+          if ( config.hasOwnProperty( 'work_order' ) ) {
+            $.each( config.work_order, function( key, value ) {
+                console.log( key );
+              $( "#work_group_" + key ).val( value );
+  
+              var comp = ( config.hasOwnProperty( 'comp_groups' ) && config.comp_groups.indexOf( key ) >= 0 ) ? 1 : 0;
+              var to = ( config.hasOwnProperty( 'to_groups' ) && config.to_groups.indexOf( key ) >= 0 ) ? 2 : 0;            
+
+              $( "#group_type_" + key ).val( comp + to );
+            
+            });
+          }
+        }
+
+        $( "#clear-btn" ).click( function() {
+          parseConfig();
+        });
+
+        $( "#save-btn" ).click( function() {
+        
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+
+          config.comp_groups = Array();
+          config.to_groups = Array();
+          config.work_order = {};
+          
+          $.each( $( "[id^=work_group_]" ), function( index, item ) {
+            config.work_order[ $( item ).data( 'id' ) ] = $( item ).val();
+          });
+
+          $.each( $( "[id^=group_type_]" ), function( index, item ) {
+            var id = $( item ).data( 'id' );
+            var value = parseInt( $( item ).val() );
+            console.log( value );
+            if ( ( value == 1 ) || ( value == 3 ) ) {
+              config.comp_groups.push( id.toString() );
+            }
+            if ( ( value == 2 ) || ( value == 3 ) ) {
+              config.to_groups.push( id.toString() );
+            }
+          });
+
+          console.log( config );
+
+          $.post( "<?php echo apiHref; ?>db/events/<?php echo $event[ 'id' ]; ?>",
+                  { 'configuration' : config },
+                  function( json ) {
+            if ( json.updated == 0 ) {
+      			  $( "#error-div" ).slideDown();
+		       	} else {
+			        $( "#success-div" ).slideDown();
+		      	}
+          });
+
+        });
+
+        parseConfig();
+      </script>
+
+<?php Display::closeBody(); ?>

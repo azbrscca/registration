@@ -1,0 +1,34 @@
+<?php
+  require_once "../common/Common.php";
+  require_once dirname(__FILE__)."/reg-api.php";
+  
+  $apiFlag = "reg-api/";
+  $method = strtoupper( $_SERVER[ 'REQUEST_METHOD' ] );
+  $uri = substr( $_SERVER[ 'REQUEST_URI' ],
+                  strpos( $_SERVER[ 'REQUEST_URI' ], $apiFlag ) + strlen( $apiFlag ) );
+
+  RegAPI::setApiKey( apiMasterKey );
+  RegAPI::setApiUrl( baseHref."api/" );
+  RegAPI::setOrganizationId( apiMasterId );
+  RegAPI::setUseServerTime( false );
+
+  header('Content-Type: application/json');
+
+  switch( $method ) {
+    case 'GET':
+      if ( strpos( $uri, '?' ) !== false ) {
+        $uri = substr( $uri, 0, strpos( $uri, '?' ) );
+      }
+      echo RegAPI::getRequest( $uri, $_GET );
+    break;
+
+    case 'POST':
+      echo RegAPI::postRequest( $uri, $_POST );
+    break;
+
+    default:
+      json_encode( array( 'error' => "method not supported" ) );
+    break;
+
+  }
+?>

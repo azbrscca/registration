@@ -1,0 +1,111 @@
+<?php
+  require_once "../../../common/Common.php";
+  require_once "../../../db/Query.php";
+
+  require_once "common.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+  
+  $redirect = true;
+  $q = new Query( "events" );
+  $q->joinOn( "site" );
+
+  if ( !empty( $_SESSION[ 'event_id' ] ) ) {
+    $event = $q->selectById( $_SESSION[ 'event_id' ] );
+    if ( !empty( $event ) &&
+         ( $event[ 'organization_id' ] == $user[ 'organization_id' ] ) ) {
+      $redirect = false;
+    }
+  }
+
+  if ( $redirect ) {
+    header( "Location: index.html" );
+  }    
+
+  $config = json_decode( $event[ 'configuration' ] );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+?>
+<?php configureNav( $event, $org ); ?>
+
+        <div class="row-fluid">
+
+<?php configurePills(); ?>
+
+          <div class="span9" id="configure-div">
+          
+            <form action="<?php echo baseHref; ?>forms/index.html" class="form-horizontal" id="event-form" method="post">
+              <input id="action" name="action" type="hidden" value="forms" />
+              <input name="event_id" type="hidden" value="<?php echo $event[ 'id' ]; ?>" />
+              <div class="control-group">
+                <label class="control-label" for="form_type">Form Type</label>
+                <div class="controls">
+                  <select class="input-xlarge" id="form_type" name="form_type">
+                    <option value="1" selected="selected">Combined Competition & TO</option>
+                    <option value="2">Separate Competition & TO</option>
+                    <option value="3">Separate, All Competitions followed by All TOs</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label class="control-label" for="order">Form Ordering</label>
+                <div class="controls">
+                  <select class="input-xlarge" id="order" name="order">
+                      <option value="1" selected="selected">Alphabetical by Last Name, First Name</option>
+                      <option value="2">Alphabetical by First Name, Last Name</option>
+                      <option value="3">Run Order</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="forms-btn" type="button">Generate Forms</button>
+                <button class="btn btn-primary" id="spreadsheet-btn" type="button">Generate Spreadsheet</button>
+              </div>
+            </form>
+          
+          </div>
+
+        </div>
+
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+
+        $( "#form_type" ).change( function() {
+	  if ( parseInt( $( this ).val() ) == 3 ) {
+	    $( "#order" ).val( 1 );
+	    $( "#order" ).attr( 'disabled', "disabled" );
+	  } else {
+	    $( "#order" ).removeAttr( 'disabled' );
+	  }
+	});
+      
+        $( "#forms-btn" ).click( function() {
+          $( "#action" ).val( "forms" );
+          $( "#event-form" ).submit();
+        });
+
+        $( "#spreadsheet-btn" ).click( function() {
+          $( "#action" ).val( "spreadsheet" );
+          $( "#event-form" ).submit();
+        });
+
+      </script>
+
+<?php Display::closeBody(); ?>

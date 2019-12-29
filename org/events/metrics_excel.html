@@ -1,0 +1,172 @@
+<?php
+  require_once "../../common/Common.php";
+  require_once "../../db/Query.php";
+ 
+  require_once osDir."PHPExcel-1.7.6//Classes/PHPExcel.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  function appendToRow( $excelSheet, $row, &$col, $data ) {
+    foreach( $data as $item ) {
+      $excelSheet->setCellValue( getColIndex( $col++ ).$row, $item );
+    }
+  }
+
+  function getColIndex( $col ) {
+    $index = "";
+    if ( floor( $col / 26 ) > 0 ) {      
+      $index = chr( floor( $col / 26 ) + 64 );
+    }
+    $index .= chr( ( $col % 26 ) + 65 );
+    return $index;
+  }
+
+
+  $login = Session::checkLogin();
+
+  $args = Functions::cleanArray( $_POST );
+  if ( !empty( $args ) && !empty( $args[ 'event_id' ] ) ) {
+  
+    $q = new Query( "events" );
+    $event = $q->joinOn( 'organization' )->selectById( $args[ 'event_id' ] );
+
+    $metrics = json_decode( file_get_contents( apiHref.'metrics/event/'.$args[ 'event_id' ] ), true );
+
+		$excelWorkbook = new PHPExcel();
+		$excelWorkbook->getProperties()->setCreator("Jeff Israel");
+	
+		$excelWorkbook->getDefaultStyle()->getFont()->setName( 'Arial' );
+		$excelWorkbook->getDefaultStyle()->getFont()->setSize( 12 );
+	
+		$sheetNdx = 0;
+	
+		$excelWorkbook->setActiveSheetIndex( $sheetNdx++ );
+		$excelSheet = $excelWorkbook->getActiveSheet();
+
+    $excelSheet->setTitle( "Event Metrics" );
+
+    $col = 0;
+    $row = 1;
+
+    $excelSheet->setCellValue( 'B'.$row, "Competition" );
+    $excelSheet->setCellValue( 'C'.$row, "Time Only" );
+    $row++;
+
+    $excelSheet->setCellValue( 'A'.$row, "Total" );
+    $excelSheet->getStyle( 'A'.$row.':G'.$row )->getFont()->setBold( true );
+    $excelSheet->setCellValue( 'B'.$row, $metrics[ 'totals' ][ 'Competition' ] );
+    $excelSheet->setCellValue( 'C'.$row, $metrics[ 'totals' ][ 'Time Only' ] );
+    $row++;
+    
+    $row++; // blank row
+
+    $col = 3;
+    $typeTotals = array();
+    foreach( $metrics[ 'paymentTypes' ] as $typeName => $fees ) {
+      $excelSheet->setCellValue( getColIndex($col++).$row, $typeName );
+      $excelSheet->setCellValue( getColIndex($col++).$row, "Amount" );
+      $typeTotals[ $typeName ] = 0;
+    }
+    $row++;
+    
+    foreach( $metrics[ 'data' ] as $key1 => $values1 ) {
+      foreach( $values1 as $key2 => $values2 ) {
+        foreach( $values2 as $key3 => $values3 ) {
+          $excelSheet->setCellValue( 'A'.$row, $key1 );
+          $excelSheet->setCellValue( 'B'.$row, $key2 );
+          $excelSheet->setCellValue( 'C'.$row, $key3 );
+          $col = 3;
+          foreach( $metrics[ 'paymentTypes' ] as $typeName => $fees ) {
+            $count = $metrics[ 'data' ][ $key1 ][ $key2 ][ $key3 ][ $typeName ];
+            $total = $count * $metrics[ 'entryFees' ][ $key1 ][ $key2 ][ $key3 ];
+            if ( array_key_exists( $key3, $metrics[ 'paymentTypes' ][ $typeName ] ) ) {
+              $total += $count * $metrics[ 'paymentTypes' ][ $typeName ][ $key3 ];
+            }
+            $typeTotals[ $typeName ] += $total;
+            $excelSheet->setCellValue( getColIndex( $col++ ).$row, $count );
+            $excelSheet->setCellValue( getColIndex( $col ).$row, $total );
+						$excelSheet
+							->getStyle( getColIndex( $col++ ).$row )
+							->getNumberFormat()
+							->setFormatCode( PHPExcel_Style_NumberFormat::FORMAT_CURRENCY_USD_SIMPLE );
+
+          }
+          $row++;
+        }
+      }
+      $row++; // blank row
+    }
+    $row++;
+    
+    $col = 4;
+    $excelSheet->setCellValue( 'A'.$row, "Totals" );
+    $excelSheet->getStyle( 'A'.$row )->getFont()->setBold( true );
+    foreach( $typeTotals as $typeName => $amount ) {
+			$excelSheet->setCellValue( getColIndex( $col ).$row, $amount );
+			$excelSheet
+				->getStyle( getColIndex( $col ).$row )
+				->getNumberFormat()
+				->setFormatCode( PHPExcel_Style_NumberFormat::FORMAT_CURRENCY_USD_SIMPLE );
+			$col += 2;
+		}
+		$row++;
+		
+		$row++; // blank row
+
+    $excelSheet->setCellValue( 'A'.$row, "Discounts Applied" );
+    $excelSheet->getStyle( 'A'.$row )->getFont()->setBold( true );
+    $row++;
+    foreach( $metrics[ 'discounts' ] as $discount ) {
+			$excelSheet->setCellValue( 'A'.$row, $discount[ 'entrant_name_first' ]." ".$discount[ 'entrant_name_last' ] );
+			$excelSheet->setCellValue( 'B'.$row, $discount[ 'comment' ] );
+			$excelSheet->setCellValue( 'C'.$row, $discount[ 'entry' ] );
+			$col += 2;
+			$row++;
+		}
+		
+		$row++; // blank row
+
+    $excelSheet->setCellValue( 'A'.$row, "Electronic Payments" );
+    $excelSheet->getStyle( 'A'.$row )->getFont()->setBold( true );
+    $row++;
+    foreach( $metrics[ 'payments' ] as $payment ) {
+			$excelSheet->setCellValue( 'A'.$row, $payment[ 'entrant_name_first' ]." ".$payment[ 'entrant_name_last' ] );
+			$excelSheet->setCellValue( 'B'.$row, $payment[ 'amount' ] );
+			$excelSheet
+				->getStyle( 'B'.$row )
+				->getNumberFormat()
+				->setFormatCode( PHPExcel_Style_NumberFormat::FORMAT_CURRENCY_USD_SIMPLE );
+			$col += 2;
+			$row++;
+		}
+		
+    $excelSheet->getColumnDimension( 'A' )->setWidth( 18 );
+    $excelSheet->getColumnDimension( 'B' )->setWidth( 18 );
+    $excelSheet->getColumnDimension( 'C' )->setWidth( 12 );
+    $excelSheet->getColumnDimension( 'D' )->setWidth( 12 );
+    $excelSheet->getColumnDimension( 'E' )->setWidth( 12 );
+    $excelSheet->getColumnDimension( 'F' )->setWidth( 12 );
+    $excelSheet->getColumnDimension( 'G' )->setWidth( 12 );
+
+		$excelWorkbook->setActiveSheetIndex( 0 );
+
+		header("Content-type: application/vnd.ms-excel");
+		header("Content-Disposition: attachment; filename=".preg_replace( "/ /", "_", $event[ 'organization_shortname' ] )."_Event_Metrics_".$event[ 'date' ].".xls");
+		header('Cache-Control: max-age=0');
+		$objWriter = PHPExcel_IOFactory::createWriter($excelWorkbook, 'Excel5');
+	
+		$objWriter->save('php://output');
+
+		unset( $objWriter );
+  }
+?>

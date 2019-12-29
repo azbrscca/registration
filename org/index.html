@@ -1,0 +1,172 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  
+  require_once "common.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  orgNavbar( $org );  
+?>
+      <div class="row-fluid">
+        <div class="span12">
+
+          <form class="form-horizontal" id="info-form" name="info-form">
+            <fieldset>
+
+              <div class="control-group" id="name-cg">
+                <label class="control-label" for="name">Name</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="name" name="name" type="text" disabled/>
+                  <span class="help-block">
+                    Please contact the system administrator to change the organization name.
+                  </span>
+                </div>
+              </div>
+
+              <div class="control-group" id="shortname-cg">
+                <label class="control-label" for="shortname">Short Name</label>
+                <div class="controls">
+                  <input class="input-small" id="shortname" maxlength="5" name="shortname" type="text" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="url-cg">
+                <label class="control-label" for="url">Website Address</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="url" name="url" type="text" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="contact_email-cg">
+                <label class="control-label" for="contact_email">Contact Email</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="contact_email" name="contact_email" type="text" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="logo_url-cg">
+                <label class="control-label" for="logo_url">Logo URL</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="logo_url" name="logo_url" type="text" />
+                </div>
+              </div>
+
+              <div class="control-group" id="supps_url-cg">
+                <label class="control-label" for="supps_url">Supplemental Regulations URL</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="supps_url" name="supps_url" type="text" />
+                </div>
+              </div>
+
+			  <div class="alert alert-error hide" id="error-div">
+			  </div>
+			  <div class="alert alert-success hide" id="success-div">
+				Organization information saved!
+			  </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="save-btn" type="submit">Save Changes</button>
+                <button class="btn" id="clear-btn" type="button">Clear Changes</button>
+              </div>
+ 
+            </fieldset>
+          </form>
+
+        </div>
+      </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+        
+        var requiredIds = Array();
+
+        $( ".control-group" ).each( function() {
+          var id;
+          $( this ).find( ".control-label" ).each( function() {
+            id = $( this ).attr( 'for' );
+          });
+          
+          var required = false;
+          $( this ).find( ".label" ).each( function() {
+            if ( $( this ).html().indexOf( 'Required' ) !== false ) {
+              requiredIds[ requiredIds.length ] = id;
+            }
+          });
+        });
+
+        $( ".btn" ).click( function() {
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+        });
+        
+        function getOrg() {
+          $.getJSON( "<?php echo apiHref; ?>db/organizations/<?php echo $user[ 'organization_id' ]; ?>",
+                     function( orgJSON ) {
+            $.each( orgJSON, function( key, val ) {            
+              if ( $( "#" + key ).length > 0 ) {
+                $( "#" + key ).val( val );
+              }
+            });
+          });
+        }
+        
+        $( "#clear-btn" ).click( function() {
+          getOrg();
+        });
+        
+        $( "#info-form" ).submit( function() {
+
+          var errors = 0;
+          $.each( requiredIds, function( index, field ) {              
+            if ( $( "#" + field ).val().length == 0 ) {
+              $( "#" + field + "-cg" ).addClass( "error" );
+              errors++;
+            } else {
+              $( "#" + field + "-cg" ).removeClass( "error" );
+            }
+          });
+
+          if ( errors == 0 ) {
+            $.post( "<?php echo apiHref; ?>db/organizations/<?php echo $user[ 'organization_id' ]; ?>",
+                     $( "#info-form" ).serialize(),
+                     function( json ) {
+              if ( json.updated == 1 ) {
+                $( "#success-div" ).slideDown();
+              } else {
+                $( "#error-div" ).html( "Whoops, something went wrong. We were unable to save the organization information." );
+                $( "#error-div" ).slideDown();
+              }            
+            });
+          } else {
+            $( "#error-div" ).html( "Some required fields are empty, please complete them and try again." );
+            $( "#error-div" ).slideDown();
+            // errors
+          }
+          
+          return false;
+        });
+        
+        getOrg();
+        
+      </script>
+
+<?php Display::closeBody(); ?>

@@ -1,0 +1,606 @@
+<?php
+  require_once "../../../common/Common.php";
+  require_once "../../../db/Query.php";
+
+  require_once "common.php";
+  require_once "configuration.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  $redirect = true;
+  $q = new Query( "events" );
+  $q->joinOn( "site" );
+
+  if ( !empty( $_SESSION[ 'event_id' ] ) ) {
+    $event = $q->selectById( $_SESSION[ 'event_id' ] );
+    if ( !empty( $event ) &&
+         ( $event[ 'organization_id' ] == $user[ 'organization_id' ] ) ) {
+      $redirect = false;
+    }
+  }
+
+  if ( $redirect ) {
+    header( "Location: index.html" );
+
+  } else if ( !empty( $_POST ) ) {
+    $args = Functions::cleanArray( $_POST );
+    if ( !empty( $args[ 'action' ] ) && ( $args[ 'action' ] == "generate-forms" ) ) {
+      buildGroups( $event );
+    }
+  }
+
+  $config = json_decode( $event[ 'configuration' ] );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+?>
+
+<?php configureNav( $event, $org ); ?>
+
+        <div class="row-fluid">
+
+<?php configurePills(); ?>
+
+        <div class="span9">
+          <form class="form-horizontal" id="configuration-form" method="post">
+            <input name="action" type="hidden" value="generate-forms" />
+            <div id="forms-div">
+            </div>
+          </form>
+        </div>
+
+      </div>
+
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/jquery.scrollTo.min.js"></script>
+      <script type="text/javascript">
+
+        var categories = {};
+        var config = jQuery.parseJSON( '<?php echo json_encode( $config ); ?>' );
+        var entry_list = [];
+        var scroll = false;
+        var runGroups = <?php echo $event[ 'run_groups' ]; ?>;
+        
+        if ( typeof config.categories != 'undefined' ) {
+
+          $.each( config.categories, function( index, item ) {
+  
+            if ( typeof item.classes != 'undefined' ) {
+              categories[ item.id ] = Array();
+              $.each( item.classes, function( index, subitem ) {
+                categories[ item.id ].push( parseInt( subitem.id ) );
+              });
+            } else {
+              categories[ item.id ] = true;
+            }
+          });
+        }
+        
+        var grid = {}, formsCount = 0;
+        $( "#affix-div" ).append( $( "<div/>", { 'id' : "grid" } ) );
+
+        function deleteEntry( btn ) {
+          var data = $( btn ).attr( 'id' ).split( "-" );
+          var action = data[ 0 ];
+          var id = data[ 2 ];
+ 
+          switch( action ) {
+            case "delete":
+              $( "#delete-div-" + id ).slideDown();
+            break;
+
+            case "yes":
+
+              $.post( "<?php echo apiHref; ?>db/entry_forms/" + id,
+                      { '_method' : "delete" },
+                      function( json ) {
+                if ( json == 1 ) {
+                  $( "#form-" + id ).slideUp();
+                }
+              });
+            break;
+
+            case "no":
+              $( "#delete-div-" + id ).slideUp();
+            break;
+          }
+        }
+        
+        function gridDetails() {
+          
+          $.each( grid, function( index, group ) {
+          
+            var groupDiv = $( "#grid-" + index );
+            groupDiv.empty();
+            groupDiv.append( group.length + " positions filled. " );
+            groupDiv.append( "Empty positions: " );
+            var lastPosition = group[ group.length - 1 ];
+            for( var p=1; p< lastPosition; p++ ){
+              if ( group.indexOf( p ) == -1 ) {
+                groupDiv.append( p.toString() + ", " );
+              }
+            }
+            groupDiv.append( (lastPosition+1) + "+" );
+          
+          });
+          
+        }
+        
+        function moveToGroup( group ) {
+          var groupChar = String.fromCharCode( parseInt( group ) + 64 );
+          $.scrollTo( $( "#grid-" + groupChar ), 800, { offset: -60 } );
+        }
+        
+        function cancelForm() {
+          $( "#forms-btn" ).removeClass( 'btn-danger' );
+          $( "#submit-div " ).remove();
+        }
+          
+        function submitForm( item ) {
+          if ( formsCount == 0 ) {
+            $( "#configuration-form" ).submit();
+          } else {
+            if ( $( item ).hasClass( 'btn-danger' ) ) {
+              $( "#configuration-form" ).submit();
+
+            } else {
+              $( item ).addClass( 'btn-danger' );
+              
+              var div = $( "<div/>", { 'class' : "alert alert-danger", 'id' : "submit-div" } )
+              div.append( 
+                   $( "<button/>", { 'class' : "close pull-right", 'type' : "button" } )
+                   .html( "&times" )
+                   .on( 'click', function() { cancelForm(); } ) )
+                 .append( "Regenerating forms will re-build all run groups. " )
+                 .append( "All manual edits will be discarded. " )
+                 .append( "Please click 'Regenerate Forms' to confirm. " )
+                 .append( "Close this dialog to cancel." );
+
+              $( item ).parent().after( div );
+            }
+          }
+        }
+      
+        function updateForm( id ) {
+
+          var formData = {};
+          $.each( $( "[data-id=" + id + "]" ), function( index, item ) {
+            var field = $( item ).attr( 'data-field' );
+            if ( typeof field != 'undefined' ) {
+              formData[ field ] = $( item ).val();
+            }
+          });
+          formData[ 'work_group' ] = config[ 'work_order' ][ formData[ 'run_group' ] ];
+          
+          $.post( "<?php echo apiHref; ?>db/entry_forms/" + id,
+                  formData,
+                  function( json ) {
+            if ( json.updated == 1 ) {
+
+              // console.log( json );
+
+              $( "#form-" + id ).attr( 'data-run_group', json.run_group );
+              $( "#form-" + id ).attr( 'data-position', json.position );
+              // console.log( $( "#form-" + id ).attr( 'data-run_group' ) );
+              // console.log( $( "#form-" + id ).attr( 'data-position' ) );
+
+              var items = $( "#forms-div" ).children( '[data-run_group=' + json.run_group + ']' )
+
+              $.each( items, function( index, item ) {
+
+                // console.log( item );
+
+                if ( $( item ).attr( 'id' ) == "form-" + id ) {
+                  // console.log( "self" );
+
+                } else if ( parseInt( $( item ).attr( 'data-position' ) ) >= json.position ) {
+                  // console.log( "insert before this one!" );
+                  // console.log( $( item ) );
+
+                  $( "#form-" + id ).insertBefore( $( item ) );
+                  return false;
+
+                } else if ( index == ( items.length - 1 ) ) {
+                  // console.log( "last" );
+                  $( "#form-" + id ).insertAfter( $( item ) );
+                  return false;
+                }
+
+              });
+
+              if ( scroll ) {
+                $.scrollTo( $( "#form-" + id ), 800, { offset: -60 } );
+              }
+              
+              var siblingId = parseInt( $( "#sibling-" + id ).attr( 'data-siblingOf' ) );
+              if ( siblingId != 0 ) {
+                var sibling = $( "#sibling-" + siblingId );
+                sibling.find( "strong" ).html( 
+                  String.fromCharCode( parseInt( formData[ 'run_group' ] ) + 64 ) + 
+                  formData[ 'position' ].toString()
+                );
+              }
+
+              $.each( grid, function( index ) {
+                grid[ index ] = Array();
+              });
+
+              var group = 0, position = 0;
+              $.each( $( "#forms-div" ).children( ".well" ), function( index, form ) {
+                var g = parseInt( $( form ).attr( 'data-run_group' ) );
+                var p = parseInt( $( form ).attr( 'data-position' ) );
+                var groupChar = String.fromCharCode( g+64 );
+
+                grid[ groupChar ].push( p );
+                if ( ( group == g ) && ( position == p ) ) {
+                  $( form ).addClass( 'alert-error' );
+                } else {
+                  $( form ).removeClass( 'alert-error' );
+                }
+                
+                group = g;
+                position = p;
+              });
+
+              gridDetails();
+            }
+          });
+          
+        }
+
+        $.getJSON( "<?php echo apiHref; ?>/db/registrations/count",
+                   { 'event_id' : <?php echo $event[ 'id' ]; ?> },
+                   function( registrationCount ) {
+
+          $.getJSON( "<?php echo apiHref; ?>forms/event/<?php echo $event[ 'id' ]; ?>/?order_by=run_group,position",
+               function( forms ) {
+               
+            formsCount = forms.length;
+            var group = 0;
+            var groupChar;
+            var position = 0;
+            var formMap = {};
+            
+            $.each( forms, function( index, form ) {
+    
+              if ( !formMap[ form.entrant_id ] ) {
+                formMap[ form.entrant_id ] = {}
+              }
+              var entryKey = ( form.comp_category_id == 0 ) ? 'T' : 'C';
+              formMap[ form.entrant_id ][ entryKey ] = {
+                'id' : form.id,
+                'grid' : String.fromCharCode( 64+parseInt( form.run_group ) ) + form.position.toString()
+              }
+            });
+
+            var rgBtns = $( "<div/>", { 'class' : "btn-group" } );
+
+            $( "#affix-div" )
+              .append( $( "<hr/>" ) )
+              .append( $( "<div/>" )
+                .append( $( "<p/>" ).html( "Run Groups:" ) )
+                .append( $( "<p/>" ).append( rgBtns ) )
+              );
+
+            $.each( forms, function( index, form ) {
+      
+              groupChar = String.fromCharCode( parseInt( form.run_group ) + 64 );
+              var name = form.name_first + ' ' + form.name_last;
+              if ( $.inArray( name, entry_list ) < 0 ) {
+                entry_list.push( name );
+              }
+            
+              if ( parseInt( form.run_group ) != group ) {
+                $( "#forms-div" )
+                  .append( $( "<div/>", { 'class' : "alert" } )
+                       .append( $( "<strong/>" ).append( "Run Group " + groupChar ) )
+                       .append( $( "<span/>", { 'class' : "offset1", 'id' : "grid-" + groupChar } ) )
+                    );
+                rgBtns
+                  .append( 
+                    $( "<button/>", { 'class' : "btn" } ).append( groupChar )
+                    .on( 'click', function() { moveToGroup( form.run_group ); } )
+                  );
+              }
+        
+              var formDiv = $( "<div/>",
+                       { 'class' : "well well-small",
+                        'id' : "form-" + form.id,
+                        'data-run_group' : form.run_group,
+                        'data-position' : form.position,
+                        'data-name' : form.name_first + ' ' + form.name_last,
+                        'data-class' : form.scca_class_initials,
+                        'data-category' : form.comp_category_name
+                      });
+                       
+              if ( typeof grid[ groupChar ] == "undefined" ) {
+                grid[ groupChar ] = Array();
+              }
+              grid[ groupChar ].push( parseInt( form.position ) );
+                       
+              var row = $( "<div/>", { 'class' : "row-fluid" } );
+              
+              if ( form.comp_category_id == 0 ) {
+                availGroups = config.to_groups;
+              } else {
+                availGroups = config.comp_groups;
+              }
+              
+              var locked = false;
+              if ( typeof categories[ form.comp_category_id ] == 'boolean' ) {
+                locked = true;
+              } else if ( typeof categories[ form.comp_category_id ] == 'object' ) {
+                locked = ( categories[ form.comp_category_id ].indexOf( parseInt( form.scca_class_id ) ) >= 0 );
+              }
+      
+              var groupSelect = $( "<select/>", { 'class' : "input-mini", 'data-field' : "run_group", 'data-id' : form.id } );
+              for( var g=1; g <= runGroups; g++ ) {
+                var opt = $( "<option/>", { 'value' : g } ).text( String.fromCharCode( 64+parseInt( g ) ) );
+                if ( form.run_group == g ) { opt.attr( 'selected', "true" ); }
+                groupSelect.append( opt );
+              }
+      
+              var positionSelect = $( "<select/>", { 'class' : "input-mini", 'data-field' : "position", 'data-id' : form.id } );
+              for( var p=1; p<=100; p++ ) {
+                var opt = $( "<option/>", { 'value' : p } ).text( p );
+                if ( form.position == p ) { opt.attr( 'selected', "true" ); }
+                positionSelect.append( opt );
+              }
+              
+              var moveBtn = $( "<button/>",
+                     { 'class' : "btn", 'data-id' : form.id, 'id' : 'move-btn-' + form.id, 'type' : "button" } )
+                     .html( "Move" )
+                     .on( 'click', function() { updateForm( form.id ); } );
+              if ( locked ) { 
+                  moveBtn.addClass( 'btn-warning' )
+                          .popover({
+                            'placement': "right",
+                            'trigger': "hover",
+                            'content': "This entry is an a class/category with a pre-assigned run group."
+                          })
+              }
+
+              var span = $( "<div/>", { 'class' : "span4" } );
+              span.append( $( "<p/>" )
+                .append( groupSelect )
+                .append( positionSelect )
+                .append( moveBtn )
+              );
+
+              var mapEntry = formMap[ form.entrant_id ];
+              var sibling = $( "<p/>",
+                { 'id' : "sibling-" + form.id,
+                  'data-id' : form.id }
+              );
+    
+              if ( form.comp_category_id == 0 ) {
+                sibling.append(
+                  $( "<p/>" )
+                    .append( "Competition Group & Position: " )
+                    .append(
+                      $( "<strong/>", { 'data-sibling' : mapEntry[ 'C' ][ 'id' ] } )
+                        .html( mapEntry[ 'C' ][ 'grid' ] + "</strong>" )
+                        .on( 'click', function() {
+                          $.scrollTo( $( "#form-" + $( this ).attr( 'data-sibling' ) ), 800, { offset: -60 } );
+                        })
+                        .on( 'hover', function() {
+                          $( this ).css( 'cursor', "pointer" );                        
+                        })
+                    )
+                );
+                sibling.attr( 'data-siblingOf', mapEntry[ 'C' ][ 'id' ] );
+              } else {
+                if ( mapEntry[ 'T' ] ) {
+                  sibling.append(
+                    $( "<p/>" )
+                      .append( "Time Only Group & Position: " )
+                      .append(
+                        $( "<strong/>", { 'data-sibling' : mapEntry[ 'T' ][ 'id' ] } )
+                          .html( mapEntry[ 'T' ][ 'grid' ] + "</strong>" )
+                          .on( 'click', function() {
+                            $.scrollTo( $( "#form-" + $( this ).attr( 'data-sibling' ) ), 800, { offset: -60 } );
+                          })
+                          .on( 'hover', function() {
+                            $( this ).css( 'cursor', "pointer" );                        
+                          })
+                      )
+                   );
+                  sibling.attr( 'data-siblingOf', mapEntry[ 'T' ][ 'id' ] );
+                } else {
+                  sibling.append( $( "<p/>" ).append( "No Time Only" ) );
+                  sibling.attr( 'data-siblingOf', 0 );
+                }           
+              }
+              
+              span.append( sibling );
+
+              var list = $( "<p/>" )
+<?php if ( $event[ 'car_numbers' ] == "1" ) { ?>
+              list.append( $( "<p/>" ).append( "Car Number: " + form.car_number ) );
+<?php } ?>
+              list.append( "Run Group Preferences: " );
+              
+              for( g=1; g<=3; g++ ) {
+                var choice = parseInt( form[ 'registration_run_group_' + g ] );
+                if ( choice == 0  ) {
+                  list.append( $( "<span/>", { 'class' : "badge" } ).html( " - " ) );
+                } else {
+                  list.append( $( "<span/>", { 'class' : "badge" } ).html( String.fromCharCode( parseInt( form[ 'registration_run_group_' + g ] ) + 64 ) ) );
+                }
+                list.append( " " );
+              }
+              span.append( list );
+              row.append( span );
+              
+              span = $( "<div/>", { 'class' : "span3" } );
+              span.append( $( "<p/>" ).append( form.name_first + ' ' + form.name_last ) );
+              span.append( $( "<p/>" ).append( "Registered: " + form.priority + " / " + registrationCount ) );
+              if ( form.codriver != "" ) {
+                span.append( $( "<p/>", { 'class' : "text-warning" } ).append( "Codriver: " + form.codriver ) );
+              } else {
+                span.append( $( "<p/>", { 'class' : "" } ).append( "Codriver: None Specified" ) );
+              }
+              row.append( span );
+      
+              span = $( "<div/>", { 'class' : "span5" } );
+
+              var car_info = form.year + ' ' + form.make + '/' + form.model + ' (' + form.color + ')'
+                            + " [" + form.scca_class_initials + '/' + form.comp_category_name + "]";
+              span.append( $( "<p/>" ).append( car_info ) );
+
+              span.append( $( "<p/>" ).append( "Comments: " + form.registration_comments ) );
+
+              var deleteBtn =
+                $( "<button/>", { 'class': "btn", 'id' : "delete-btn-" + form.id, 'type' : "button" } )
+                  .html( "Delete" )
+                  .on( 'click', function() { deleteEntry( this ); } )
+
+              var yesBtn = 
+                $( "<button/>", { 'class': "btn btn-danger", 'id' : 'yes-btn-' + form.id, 'type' : "button" } )
+                  .html( "Yes" )
+                  .on( 'click', function() { deleteEntry( this ); } )
+
+              var noBtn = 
+                $( "<button/>", { 'class': "btn", 'id' : 'no-btn-' + form.id, 'type' : "button" } )
+                  .html( "No" )
+                  .on( 'click', function() { deleteEntry( this ); } )
+
+              span
+                .append( $( "<div/>" ).append( deleteBtn ) )
+                .append(
+                  $( "<div/>", { 'class' : "alert hide", 'id' : "delete-div-" + form.id } )
+                  .append( "Permanently delete this entry for? This cannot be undone<br/>" )
+                  .append(
+                    $( "<div/>", { 'class' : "btn-group" } )
+                      .append( yesBtn )
+                      .append( noBtn )
+                  )
+                );
+
+              row.append( span );
+        
+              if ( ( group == form.run_group ) && ( position == form.position ) ) {
+                formDiv.addClass( 'alert-error' );
+              }
+              
+              group = form.run_group;
+              position = form.position;
+        
+              formDiv.append( row );
+
+      
+              $( "#forms-div" ).append( formDiv );
+            });
+
+            gridDetails();
+      
+            if ( formsCount > 0 ) {
+              $( "#affix-div" )
+                .append( $( "<p/>" )
+                  .append( 
+                  $( "<button/>", { 'class' : "btn btn-primary", 'id' : "forms-btn" } ).append( "Regenerate Forms" )
+                    .on( 'click', function() { submitForm( this ); } )
+                 )
+                );
+              
+              $( "#affix-div" )
+                .append( $( "<p/>" )
+                  .append( $( "<button/>", { 'class' : "btn", 'id' : "scroll-btn" } ).append( "Scroll On Move" )
+                    .on( 'click', function() {
+                      if ( $( this ).hasClass( 'btn-success' ) ) {
+                        $( this ).removeClass( 'btn-success' );
+                      } else {            
+                        $( this ).addClass( 'btn-success' );
+                      } 
+                      scroll = $( this ).hasClass( 'btn-success' );
+                    })
+                  )
+                );
+
+              $( "#affix-div" )
+                .append( $( "<hr/>" ) )
+                .append( $( "<p/>" )
+                  .append( $( "<form/>", { 'class' : "form-search" } )
+                    .append( $( "<div/>", { 'class' : "control-group" } )
+                      .append( $( "<label/>", { 'class' : "control-label" } ).html( "Find an Entry " ) )
+                      .append( $( "<input/>", { 'class' : "input-large search-query", 'placeholder' : "Name", 'type' : "text" } )
+                        .typeahead({
+                          source: function( query, process ) {
+                            values = entry_list;
+                            values.sort( function( str1, str2 ) {
+                              return ( ( str1 == str2 ) ? 0 : ( ( str1 > str2 ) ? 1 : -1 ) );
+                            });
+                            return values;
+                          },
+                          updater: function( item ) {
+                            $( "#search_results_data" ).empty();
+                            var forms = $( 'div[data-name="' + item + '"]' );
+                            $.each( forms, function( index, form ) {
+                              $( "#search_results_data" )
+                                .append( $( "<div/>" )
+                                  .append( item + ", " + $( form ).attr( 'data-class' ) + "/" + $( form ).attr( 'data-category' ) + ": " )
+                                  .append(
+                                    $( "<strong/>" )
+                                      .html( String.fromCharCode( parseInt( $( form ).attr( 'data-run_group' ) ) + 64 ) + $( form ).attr( 'data-position' ) )
+                                      .on( 'click', function() {
+                                        $.scrollTo( $( "#" + $( form ).attr( 'id' ) ), 800, { offset: -60 } );
+                                      })
+                                      .on( 'hover', function() {
+                                        $( this ).css( 'cursor', "pointer" );                        
+                                      })
+                                  )
+                                )
+                            });
+                            $( "#search_results" ).slideDown();
+                            return item;
+                          }
+                        })
+                      )
+                    )
+                  ) 
+              )
+              .append( $( "<div/>", { 'class' : "alert alert-info hide", 'id' : "search_results" } ) 
+               .append( $( "<button/>", { 'class' : "close" } )
+                          .html( "&times" )
+                          .on( 'click', function() {
+                            $( this ).parent().slideUp();
+                          })
+                      )
+               .append( $( "<div/>", { 'id' : "search_results_data" } ) )
+              );
+      
+            } else {
+              $( "#affix-div" )
+              .append( $( "<p/>" )
+                .append( 
+                $( "<button/>", { 'class' : "btn btn-primary", 'id' : "forms-btn" } ).append( "Generate Forms" )
+                  .on( 'click', function() { submitForm( this ); } )
+                )
+              );
+      
+              var formDiv = $( "<div/>",
+                       { 'class' : "alert alert-info" } )
+                       .append( "No forms found. Please click the 'Generate Forms' button in the left sidebar" );
+              $( "#forms-div" ).append( formDiv );
+            }
+    
+          });
+        });
+      
+      </script>
+
+<?php Display::closeBody(); ?>

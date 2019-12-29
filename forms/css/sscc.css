@@ -1,0 +1,79 @@
+html {
+}
+
+body {
+  font-family: Verdana;
+  font-size: 20px;
+  color: #000000;
+}
+
+a:link {
+  text-decoration: underline;
+}
+
+a:visited {
+  text-decoration: underline;
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+a:active {
+  text-decoration: underline;
+}
+
+h3 {
+  margin: 5px 0 5px 0;
+}
+
+.bordered {
+  border-color: #000000;
+  border-style: solid;
+  border-width: 1px;
+}
+
+.centered {
+  text-align: center;
+}
+
+.clearboth {
+  clear: both;
+}
+
+.padded {
+  padding: 5px;
+}
+
+.pull-left {
+  float: left;
+}
+
+.pull-right {
+  float: right;
+}
+
+.strong {
+  font-weight: bold;
+}
+
+.underlined {
+  text-decoration: underline;
+}
+
+.form {
+  margin: 5px auto;
+  width: 1024px;
+}
+
+.leftbar {
+  background-color: #bbeeee;
+  margin: 5px;
+  width: 480px;
+}
+
+.rightbar {
+  background-color: #eeeebb;
+  margin: 5px;
+  width: 480px;
+}

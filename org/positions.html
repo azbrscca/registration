@@ -1,0 +1,313 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+      <div class="navbar">
+        <div class="navbar-inner">
+          <p class="navbar-text pull-left">
+            <?php echo $org[ 'name' ]; ?> Work Positions
+          </p>
+          <ul class="nav">
+            <li class="divider-vertical"></li>
+          </ul>
+          <form class="navbar-form pull-left">
+            <select class="span4" id="position_id">
+            </select>
+
+            <button class="btn" id="add-btn" type="button"><i class="icon-plus"></i></button>
+              
+          </form>
+          <ul class="nav">
+            <li class="divider-vertical"></li>
+          </ul>
+
+       </div>
+      </div>
+
+        <form class="form-horizontal hide" id="position-form" name="position-form">
+          <input id="id" name="id" type="hidden" value="0" />
+          <input name="organization_id" type="hidden" value="<?php echo $user[ 'organization_id' ]; ?>" />          
+
+          <div class="row-fluid">
+            <div class="span6">
+
+                <div class="control-group" id="name-cg">
+                  <label class="control-label" for="name">Name</label>
+                  <div class="controls">
+                    <input class="input-large" id="name" name="name" placeholder="Name" type="text" />
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+
+                <div class="control-group" id="maximum-cg">
+                  <label class="control-label" for="maximum">Maximum</label>
+                  <div class="controls">
+                    <input class="input-xsmall" id="maximum" name="maximum" placeholder="Maximum Per Group" type="text" />
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+ 
+                <div class="control-group" id="public-cg">
+                  <label class="control-label" for="public">Public</label>
+                  <div class="controls">
+                    <select id="public" name="public">
+                      <option value="0">No</option>
+                      <option value="1">Yes</option>
+                    </select>
+                    <span class="label label-info">Required</span>
+                  </div>
+                </div>
+
+            </div>
+          </div>
+
+          <div class="row-fluid">
+            <div class="span12">
+			  <div class="alert alert-error hide" id="error-div">
+			  </div>
+			  <div class="alert alert-success hide" id="success-div">
+			  </div>          
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="save-btn" type="button">Save Changes</button>
+                <button class="btn" id="clear-btn" type="button">Clear Changes</button>
+                <button class="btn btn-warning" id="delete-btn" type="button">Delete</button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+        var categories;
+
+        function getPositions() {
+        
+          var selected = $( "#id" ).val();
+          $( "#position_id" ).empty();
+          $( "#position_id" ).append(
+            $( "<option/>", { value : 0 } ).text( "Select a Position" )
+           );
+       
+          $.getJSON( "<?php echo apiHref; ?>/db/work_positions/",
+                     { 'organization_id' : <?php echo $user[ 'organization_id' ]; ?>,
+                       'order' : "name" },
+                     function( json ) {
+            categories = json;
+
+            $.each( categories, function( index, position ) {
+
+              var option = $( "<option/>", { value : position.id } ).text( position.name )
+              if ( selected == position.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#position_id" ).append( option );
+            });
+          });
+        }
+
+        function getPosition( id ) {
+        
+          var position;
+          $.each( categories, function( index, item ) {
+            if ( item.id == id ) {
+              position = item;
+            }            
+          });
+
+          if ( $( "#position-form" ).is( ":hidden" ) ) {
+            $( "#position-form" ).slideDown();
+          }
+
+          $.each( position, function( key, val ) {
+            if ( $( "#" + key ).length > 0 ) {
+
+              if ( key == "classes" ) {
+                var classes = $.parseJSON( val );
+                $( "#classes option").each( function() {
+                  if ( classes.indexOf( $( this ).val() ) == -1 ) {;
+                    $( this ).removeAttr( "selected" );
+                  } else {
+                    $( this ).attr( "selected", "selected" );
+                  }
+                });
+              } else {
+                $( "#" + key ).val( val );
+              }
+            }
+          });
+        }       
+
+        getPositions();
+
+          var requiredIds = Array();
+          $( ".control-position" ).each( function() {
+            var id;
+            $( this ).find( ".control-label" ).each( function() {
+              id = $( this ).attr( 'for' );
+            });
+          
+            var required = false;
+            $( this ).find( ".label" ).each( function() {
+              if ( $( this ).html().indexOf( 'Required' ) !== false ) {
+                requiredIds[ requiredIds.length ] = id;
+              }
+            });
+          });
+
+
+          $( ".btn" ).click( function() {
+            $( "#error-div" ).slideUp();
+            $( "#success-div" ).slideUp();
+            if ( $( this ).attr( 'id' ) != "delete-btn" ) {
+              $( "#delete-btn" ).removeClass( 'btn-danger' ).html( 'Delete' );
+            }
+          }); 
+
+          $( "#add-btn" ).click( function () {
+            $( "#id" ).val( 0 );
+            $( "#name" ).val( '' );
+            $( "#initials" ).val( '' );
+            $( "#street_tires_only" ).val( 0 );
+            $( "#run_position_choice" ).val( 1 );
+            $( "#divide_by_class" ).val( 0 );
+            $( "#position_id" ).val( 0 );
+            $( "#public" ).val( 1 );
+
+            if ( $( "#position-form" ).is( ":hidden" ) ) {
+              $( "#position-form" ).slideDown();
+            }
+            
+            $( "#delete-btn" ).attr( 'disabled', "true" );
+          });
+
+        $( "#position_id" ).change( function() {
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+          $( "#delete-btn" ).removeClass( 'btn-danger' ).html( 'Delete' );
+          $( "#delete-btn" ).removeAttr( 'disabled' );
+
+          if ( parseInt( $( "#position_id" ).val() ) == 0 ) {
+            $( "#position-form" ).slideUp();
+          } else {
+            getPosition( $( this ).val() );
+          }
+        });
+
+          
+          $( "#clear-btn" ).click( function() {
+            getPosition( $( "#id" ).val() );
+          });
+
+          $( "#delete-btn" ).click( function() {
+
+            if ( $( this ).hasClass( 'btn-danger' ) ) {
+
+              $( this ).removeClass( 'btn-danger' ).html( 'Delete' );
+              var id = $( "#id" ).val();
+              $.post( "<?php echo apiHref; ?>db/work_positions/" + $( "#id" ).val(),
+                { '_method' : "delete" },
+                function( result ) {
+                
+                if ( result == 1 ) {
+                  $( "#position-form" ).slideUp();
+                  getPositions();
+                  $( "#success-div" ).html( "Position deleted!" );
+                  $( "#success-div" ).slideDown();
+                } else {
+                  $( "#error-div" ).html( "Whoops, something went wrong. We were unable to delete that item." );
+                  $( "#error-div" ).slideDown();
+                }
+              });    
+
+            } else {
+              $( this ).addClass( 'btn-danger' ).html( 'Permanently delete this position?' );
+            }
+
+          });
+
+          $( "#save-btn" ).click( function() {
+
+            $( "#error-div" ).slideUp();
+            $( "#success-div" ).slideUp();
+
+            var errors = 0;
+            $.each( requiredIds, function( index, field ) {              
+
+              if ( ( $( "#" + field ).val() == null ) ||
+                   ( $( "#" + field ).val().length == 0 ) ) {
+                $( "#" + field + "-cg" ).addClass( "error" );
+                errors++;
+              } else {
+                $( "#" + field + "-cg" ).removeClass( "error" );
+              }
+            });
+
+            var op = ( $( "#id" ).val() == 0 ) ? "insert" : "update";
+
+            if ( errors == 0 ) {
+            
+              if ( $( "#id" ).val() == 0 ) {
+                // insert
+                $.post( "<?php echo apiHref; ?>db/work_positions/",
+                        $( "#position-form" ).serialize(),
+                        function( position ) {
+
+                  if ( position.id > 0 ) {
+                    $( "#id" ).val( position.id );
+                    $( "#delete-btn" ).removeAttr( 'disabled' );
+                    $( "#success-div" ).html( "New position saved!" );
+                    $( "#success-div" ).slideDown();
+                    getPositions();
+                  } else {
+                   $( "#error-div" ).html( "Whoops, something went wrong. We were unable to add the new position." );
+                    $( "#error-div" ).slideDown();
+                  }
+                });
+
+              } else {
+                // update
+                $.post( "<?php echo apiHref; ?>db/work_positions/" + $( "#id" ).val() + "/",
+                        $( "#position-form" ).serialize(),
+                        function( position ) {
+
+                  if ( position.updated == 1 ) {
+                    getPositions();
+                    $( "#success-div" ).html( "Your changes have been saved." );
+                    $( "#success-div" ).slideDown();
+                  } else {
+                    $( "#error-div" ).html( "Whoops, something went wrong. We were unable to save your changes." );
+                    $( "#error-div" ).slideDown();
+                  }
+                });
+              }
+
+            } else {
+              $( "#error-div" ).html( "Some required fields are empty, please complete them and try again." );
+              $( "#error-div" ).slideDown();
+            }
+
+            return false;
+          });      
+
+        </script>
+
+<?php Display::closeBody(); ?>

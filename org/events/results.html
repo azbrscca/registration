@@ -1,0 +1,797 @@
+<?php
+  require_once "../../common/Common.php";
+  require_once "../../db/Query.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  $privs = json_decode( $org[ 'privileges' ], true );
+?>
+        <div class="navbar">
+          <div class="navbar-inner">
+            <p class="navbar-text pull-left">
+              <?php echo $org[ 'name' ]; ?> Events: Results
+            </p>
+            <ul class="nav">
+              <li class="divider-vertical"></li>
+            </ul>
+            <form class="navbar-form pull-left">
+              <select class="input-xlarge" id="event_id" name="event_id">
+              </select>
+            </form>
+
+            <ul class="nav">
+              <li class="divider-vertical"></li>
+            </ul>
+
+            <form class="navbar-form pull-right" id="event-form">
+<?php if ( !empty( $privs[ 'results_data' ] ) && ( $privs[ 'results_data' ] != "fast_time" ) ) { ?>
+              <ul class="nav">
+                <li class="divider-vertical"></li>
+              </ul>
+              <span class="navbar-text pull-left">Runs per Heat: &nbsp; </span>
+              <select class="input-mini pull-left" id="runs_per_heat">
+<?php   for( $i=0; $i<10; $i++ ) { ?>
+                <option value="<?php echo $i; ?>"><?php echo $i; ?></option>
+<?php   } ?>
+              </select>
+<?php } else { ?>
+              <input class="pull-left" id="runs_per_heat" type="hidden" value="1" />
+<?php } ?>
+              <ul class="nav">
+                <li class="divider-vertical"></li>
+              </ul>
+              <button class="btn btn-inverse pull-left" id="results-btn" type="button"></button>
+              <ul class="nav">
+                <li class="divider-vertical"></li>
+              </ul>
+
+              <button class="btn pull-left" id="preview-btn">
+                <i class="icon-eye-open"></i>
+              </button>
+              <ul class="nav">
+                <li class="divider-vertical"></li>
+              </ul>
+              <!--
+              <button class="btn pull-left" id="pdf-btn">
+                <i class="icon-file"></i>
+              </button>
+              -->
+              <button class="btn pull-left" id="xml-btn">
+                <i class="icon-file"></i>
+              </button>
+            </form>
+
+          </div>
+        </div>
+
+        <div class="row-fluid">
+          <div class="span2">
+            <div class="span2" id="affix-div" data-spy="affix">
+              <ul class="nav nav-pills nav-stacked" id="run-groups-ul">
+              </ul>
+
+              <button class="btn btn-block" id="save-btn" type="button">Save Changes</button>
+
+              <div class="text-warning hide text-center" id="save-div">
+                Some changes have not been saved!<br/>
+                <button class="btn btn-block" id="discard-btn" type="button">Discard Changes?</button>
+              </div>
+              
+              <hr/>
+
+              <div class="control-group">
+                <label class="control-label" for="name">Find an Entry</label>
+                <div class="controls">
+                  <input class="input-large search-query" id="search_name" placeholder="Name" type="text" />
+                </div>
+              </div>
+
+              <div id="search_div" class="alert alert-info hide">
+                <button type="button" id="search_hide" class="close">&times;</button>
+                <div id="search_results">
+                </div>
+              </div>
+              
+            </div>
+          </div>
+          
+          <div class="offset1 span9" id="results-div">
+          </div>
+
+        </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/dateformat-1.2.3.js" /></script>
+      <script type="text/javascript">
+
+        $( "#xml-btn" )
+          .click( function() {
+            window.open( '<?php echo baseHref; ?>results/xml/' + $( "#event_id" ).val() );
+            return false;
+          })
+          .popover({
+            'placement': "left",
+            'trigger': "hover",
+            'content': "SCCA Participation Report XML.",
+            'delay': { show: 500 },
+          });
+
+        $( "#preview-btn" )
+          .click( function() {
+            window.open( '<?php echo baseHref; ?>results/' + $( "#event_id" ).val() );
+            return false;
+          })
+          .popover({
+            'placement': "left",
+            'trigger': "hover",
+            'content': "Preview event results. Opens in a new tab/window",
+            'delay': { show: 500 },
+          });
+
+        var entrant_list = [], eventJSON, events, group = 0, newGroup, results, currentGroup, selected = 0;
+<?php 
+  if ( !empty( $_POST ) ) {
+    $args = Functions::cleanArray( $_POST );
+    if ( !empty( $args[ 'id' ] ) &&
+         is_numeric( $args[ 'id' ] ) ) {
+?>
+        selected = <?php echo $args[ 'id' ]; ?>;
+<?php 
+    }
+  }
+?>
+        var allChanges, anyChanges, classes, categories, discardChanges = false, newRow;
+        
+        function addResultRow( data ) {
+
+          var resultDiv = $( "<div/>", { 'class' : "row well well-small", 'id' : data['id'] + "-div" } );
+          $( "#results-div" ).append( resultDiv );
+
+          var leftDiv = $( "<div/>", { 'class' : "span6" } );
+          resultDiv.append( leftDiv );
+
+          var rightDiv = $( "<div/>", { 'class' : "span6" } );
+          resultDiv.append( rightDiv );
+
+          var groupSelect = $( "<select/>", { 'class' : "input-mini", 'data-field' : "run_group", 'data-id' : data['id'] } )
+            .on( 'change', function() { trackChange( this ); } )
+          for( var g=1; g<=eventJSON.run_groups; g++ ) {
+            var opt = $( "<option/>", { 'value' : g } ).text( String.fromCharCode( 64+g ) );
+            groupSelect.append( opt );
+          }
+          leftDiv.append( groupSelect );
+
+          var positionSelect = $( "<select/>", { 'class' : "input-mini", 'data-field' : "position", 'data-id' : data['id'] } )
+            .on( 'change', function() { trackChange( this ); } )
+          for( var p=1; p<=50; p++ ) {
+            var opt = $( "<option/>", { 'value' : p } ).text( p );
+            positionSelect.append( opt );
+          }
+          leftDiv.append( positionSelect );
+          leftDiv.append( "<br/>" );
+
+          leftDiv
+            .append( "First Name: " )
+            .append( $( "<input/>", { 'class' : "input-medium", 'data-field' : "name_first", 'data-id' : data['id'], 'type' : "text" } ).on( 'change', function() { trackChange( this ); } ) )
+            .append( $( "<br/>" ) );
+
+          leftDiv
+            .append( " Last Name: " )
+            .append( $( "<input/>", { 'class' : "input-medium", 'data-field' : "name_last", 'data-id' : data['id'], 'type' : "text" } ).on( 'change', function() { trackChange( this ); } ) )
+            .append( "<br/>" );
+              
+          var yearSelect = $( "<select/>", { 'class' : "input-small", 'data-field' : "year", 'data-id' :  data['id'] } )
+            .on( 'change', function() { trackChange( this ); } )
+          for( var y=1950; y<=<?php echo ( date( "Y", time() ) + 1 ); ?>; y++ ) {
+            var opt = $( "<option/>", { 'value' : y } ).text( y );
+            if ( y == "<?php echo date( "Y", time() ); ?>" ) { opt.attr( 'selected', "selected" ) }
+            yearSelect.append( opt );
+          }
+
+          leftDiv
+            .append( "Car: " )
+            .append( yearSelect )
+            .append( $( "<input/>", { 'class' : "span8", 'data-field' : "car", 'data-id' : data['id'], 'type' : "text" } ).on( 'change', function() { trackChange( this ); } ) )
+            .append( "<br/>" );
+            
+          var classSelect = $( "<select/>", { 'class' : "input-small", 'data-field' : "scca_class_id", 'data-id' : data['id'] } ).on( 'change', function() { trackChange( this ); } );
+          $.each( classes, function( index, c ) {
+            var opt = $( "<option/>", { 'value' : c.id } ).text( c.initials );
+            classSelect.append( opt );
+          });
+          leftDiv.append( "Class: " )
+            .append( classSelect )
+            .append( " " );
+
+          var categorySelect = $( "<select/>", { 'class' : "input-medium", 'data-field' : "comp_category_id", 'data-id' : data['id'] } ).on( 'change', function() { trackChange( this ); } );
+          $.each( categories, function( index, c ) {
+            var opt = $( "<option/>", { 'value' : c.id } ).text( c.name );
+            categorySelect.append( opt );
+          });
+          categorySelect.append( $( "<option/>", { 'value' : 0 } ).text( "Time Only" ) );
+
+          leftDiv.append( "Category: " )
+            .append( categorySelect )
+            .append( "<br/>" );
+
+          var sccaSelect = $( "<select/>", { 'class' : "input-mini", 'data-field' : "scca_member", 'data-id' : data['id'] } ).on( 'change', function() { trackChange( this ); } );
+          sccaSelect.append( $( "<option/>", { 'value' : 0 } ).text( "No" ) );
+          sccaSelect.append( $( "<option/>", { 'value' : 1 } ).text( "Yes" ) );
+          leftDiv.append( "SCCA Member: " );
+          leftDiv.append( sccaSelect )
+            .append( " " );
+
+          for( var i=1; i<=eventJSON.runs_per_heat; i++ ) {
+            rightDiv.append( i + " Time: " );
+            var input = $( "<input/>", { 'class' : "input-mini", 'data-field' : "raw", 'data-id' : data['id'], 'data-index' : i, 'type' : "text" } ).on( 'change', function() { trackChange( this ); } );
+            rightDiv.append( input );
+
+            rightDiv.append( " Penalty (Secs): " );
+            input = $( "<input/>", { 'class' : "span1", 'data-field' : "penalty", 'data-id' : data['id'], 'data-index' : i, 'type' : "text" } ).on( 'change', function() { trackChange( this ); } );
+            rightDiv.append( input );
+
+            rightDiv.append( "<br/>" );
+          }
+        }
+        
+        function deleteResultRow( item ) {
+        
+          if ( $( item ).hasClass( "btn-danger" ) ) {
+          
+            var id = parseInt( $( item ).data( 'id' ) );
+            var divId = "#" + id + "-div";
+            
+            $.post( "<?php echo apiHref; ?>db/results/" + id,
+              { '_method' : "delete" },
+              function( json ) {
+            
+              if ( json == 1 ) {
+                $( divId ).empty();
+                var newDivId = $( "<div/>", { 'class' : "alert" } );
+                newDivId
+                  .append( "Entry deleted." )
+                  .append( $( "<button/>", { 'class' : "close pull-right" } )
+                  .html( "&times;" )
+                  .on( 'click', function() { $( this ).parent().parent().remove(); } ) );
+                $( divId ).append( newDivId );
+                getEntrants();                
+              } else {
+                $( item ).html( "Failed to Delete Entry!" );
+              }
+            });
+
+          } else {
+            $( item ).removeClass( "btn-warning" );
+            $( item ).addClass( "btn-danger" );
+            $( item ).html( "Please Click Again to Confirm Delete" );
+          }
+
+        }
+        
+        function getEvents() {
+        
+          $( "#event_id" ).empty();
+       
+          $.getJSON( "<?php echo apiHref; ?>events/active/",
+                     { "organization_id" : <?php echo $user[ 'organization_id' ]; ?> },
+                     function( json ) {
+            events = json;
+
+            $.each( events, function( index, eventJSON ) {
+            
+              eventText = eventJSON.date + ' at ' + eventJSON.site_name
+              if ( eventJSON.name != '' ) {
+                eventText = eventJSON.name + ' ' + eventText;
+              }
+              var option = $( "<option/>", { value : eventJSON.id } ).text( eventText )
+              if ( selected == eventJSON.id ) {
+                option.attr( 'selected', "true" );
+              }
+                
+              $( "#event_id" ).append( option );
+            });
+            if ( selected == 0 ) {
+              selected = $( "#event_id" ).val();
+            }
+            getResults( selected );
+          });
+        }
+        
+        function getGroup( item ) {
+        
+          if ( anyChanges && !discardChanges ) {
+            newGroup = item;
+            $( "#save-div" ).slideDown();
+            return;
+          }
+          
+          currentGroup = item;
+          discardChanges = false;
+
+          $( "#save-btn" ).removeClass( "btn-success" );
+
+          $( "#run-group-li-" + group.toString() ).removeClass( 'active' );
+          group = parseInt( $( item ).data( 'group' ) );
+          $( "#run-group-li-" + group.toString() ).addClass( 'active' );
+
+          $( "#results-div" ).empty();
+          allChanges = {};
+          
+          if ( group == 0 ) {
+          
+            for( newRow = 1; newRow <= 5; newRow++ ) {
+              data = { 'id' : 'new' + newRow.toString() };
+              allChanges[ 'new' + newRow.toString() ] = false;
+              addResultRow( data );
+            }
+            
+          } else {
+          
+            $.getJSON( "<?php echo apiHref; ?>db/results",
+                       { 'event_id' : eventJSON.id,
+                         'run_group' : group,
+                         'order' : "position", },
+                       function( results ) {
+              $.each( results, function( index, r ) {
+              
+                allChanges[ r.id ] = false;
+              
+                var resultDiv = $( "<div/>", { 'class' : "row well well-small", 'id' : r.id + "-div" } );
+                $( "#results-div" ).append( resultDiv );
+
+                var leftDiv = $( "<div/>", { 'class' : "span6" } );
+                resultDiv.append( leftDiv );
+
+                var rightDiv = $( "<div/>", { 'class' : "span6" } );
+                resultDiv.append( rightDiv );
+
+                var groupSelect = $( "<select/>", { 'class' : "input-mini", 'data-field' : "run_group", 'data-id' : r.id } )
+                  .on( 'change', function() { trackChange( this ); } )
+                for( var g=1; g<=eventJSON.run_groups; g++ ) {
+                  var opt = $( "<option/>", { 'value' : g } ).text( String.fromCharCode( 64+g ) );
+                  if ( group == g ) { opt.attr( 'selected', "true" ); }
+                  groupSelect.append( opt );
+                }
+                leftDiv.append( groupSelect );
+
+                var positionSelect = $( "<select/>", { 'class' : "input-mini", 'data-field' : "position", 'data-id' : r.id } )
+                  .on( 'change', function() { trackChange( this ); } )
+                for( var p=1; p<=50; p++ ) {
+                  var opt = $( "<option/>", { 'value' : p } ).text( p );
+                  if ( r.position == p ) { opt.attr( 'selected', "true" ); }
+                  positionSelect.append( opt );
+                }
+                leftDiv.append( positionSelect );
+                leftDiv.append( "<br/>" );
+
+                leftDiv
+                  .append( "First Name: " )
+                  .append( $( "<input/>", { 'class' : "input-medium", 'data-field' : "name_first", 'data-id' : r.id, 'type' : "text" } ).val( $("<div/>").html( r.name_first ).text() ).on( 'change', function() { trackChange( this ); } ) )
+                  .append( $( "<br/>" ) );
+
+                leftDiv
+                  .append( " Last Name: " )
+                  .append( $( "<input/>", { 'class' : "input-medium", 'data-field' : "name_last", 'data-id' : r.id, 'type' : "text" } ).val( $("<div/>").html( r.name_last ).text() ).on( 'change', function() { trackChange( this ); } ) )
+                  .append( "<br/>" );
+                  
+              var year = r.car.substring( 0, r.car.indexOf( ' ' ) );
+              var car = r.car.substring( r.car.indexOf( ' ' ) + 1 );
+                  
+              var yearSelect = $( "<select/>", { 'class' : "input-small", 'data-field' : "year", 'data-id' : r.id } )
+                .on( 'change', function() { trackChange( this ); } )
+              for( var y=1950; y<=<?php echo ( date( "Y", time() ) + 1 ); ?>; y++ ) {
+                var opt = $( "<option/>", { 'value' : y } ).text( y );
+                if ( year == y ) { opt.attr( 'selected', "true" ); }
+                yearSelect.append( opt );
+              }
+
+              leftDiv
+                .append( "Car: " )
+                .append( yearSelect )
+                .append( $( "<input/>", { 'class' : "span8", 'data-field' : "car", 'data-id' : r.id, 'type' : "text" } ).val( car ).on( 'change', function() { trackChange( this ); } ) )
+                .append( "<br/>" );
+                
+                var classSelect = $( "<select/>", { 'class' : "input-small", 'data-field' : "scca_class_id", 'data-id' : r.id } ).on( 'change', function() { trackChange( this ); } );
+                $.each( classes, function( index, c ) {
+                  var opt = $( "<option/>", { 'value' : c.id } ).text( c.initials );
+                  if ( c.id == r.scca_class_id ) { opt.attr( 'selected', "true" ) }
+                  classSelect.append( opt );
+                });
+                leftDiv.append( "Class: " )
+                  .append( classSelect )
+                  .append( " " );
+
+                var categorySelect = $( "<select/>", { 'class' : "input-medium", 'data-field' : "comp_category_id", 'data-id' : r.id } ).on( 'change', function() { trackChange( this ); } );
+                $.each( categories, function( index, c ) {
+                  var opt = $( "<option/>", { 'value' : c.id } ).text( c.name );
+                  if ( c.id == r.comp_category_id ) { opt.attr( 'selected', "true" ) }
+                  categorySelect.append( opt );
+                });
+                  var opt = $( "<option/>", { 'value' : 0 } ).text( "Time Only" );
+                  if ( r.comp_category_id == 0  ) { opt.attr( 'selected', "true" ) }
+                  categorySelect.append( opt );
+                leftDiv.append( "Category: " )
+                  .append( categorySelect )
+                  .append( "<br/>" );
+
+                var sccaSelect = $( "<select/>", { 'class' : "input-mini", 'data-field' : "scca_member", 'data-id' : r.id } ).on( 'change', function() { trackChange( this ); } );
+                sccaSelect.append( $( "<option/>", { 'value' : 0 } ).text( "No" ) );
+                sccaSelect.append( $( "<option/>", { 'value' : 1 } ).text( "Yes" ) );
+                leftDiv.append( "SCCA Member: " );
+                leftDiv.append( sccaSelect )
+                  .append( "<br/>" );
+                sccaSelect.val( r.scca_member );
+
+                if ( r.registration_id == 0 ) {
+                  var deleteBtn =
+                    $( "<button/>", { 'class' : "btn btn-warning", 'data-id' : r.id } )
+                      .append( "Delete On Site Entrant" )
+                      .on( 'click', function() { deleteResultRow( this ); } );
+                  leftDiv
+                    .append( deleteBtn )
+                } else {
+                  var deleteBtn =
+                    $( "<button/>", { 'class' : "btn btn-info", 'disabled' : "disabled" } )
+                      .append( "Cannot Delete Online Entrant" );
+
+                  var noshowSelect = $( "<select/>", { 'class' : "input-mini", 'data-field' : "noshow", 'data-id' : r.id } ).on( 'change', function() { trackChange( this ); } );
+                  noshowSelect.append( $( "<option/>", { 'value' : 0 } ).text( "No" ) );
+                  noshowSelect.append( $( "<option/>", { 'value' : 1 } ).text( "Yes" ) );
+                  rightDiv
+                    .append( " No Show/Canceled: " )
+                    .append( noshowSelect )
+                    .append( "<br/>" );
+                  leftDiv
+                    .append( deleteBtn );
+                  noshowSelect.val( r.noshow );
+                }
+
+                var times = jQuery.parseJSON( r.all_times );
+                for( var i=1; i<=eventJSON.runs_per_heat; i++ ) {
+                  rightDiv.append( i + " Time: " );
+                  var input = $( "<input/>", { 'class' : "input-mini", 'data-field' : "raw", 'data-id' : r.id, 'data-index' : i, 'type' : "text" } ).on( 'change', function() { trackChange( this ); } );
+                  rightDiv.append( input );
+                  if ( times != null && times.length >= i ) { input.val( times[ i-1 ].raw ) }
+
+                  rightDiv.append( " Penalty (Secs): " );
+                  input = $( "<input/>", { 'class' : "span2", 'data-field' : "penalty", 'data-id' : r.id, 'data-index' : i, 'type' : "text" } ).on( 'change', function() { trackChange( this ); } );
+                  rightDiv.append( input );
+                  if ( times != null && times.length >= i ) { input.val( times[ i-1 ].penalty ) }
+
+                  rightDiv.append( "<br/>" );
+                }
+
+                rightDiv.append(
+                  $( "<div/>", { 'id': "status-" + r.id } )
+                    .append( $( "<div/>" ).html( "PAX Time: " + parseFloat( r.pax_time ).toFixed(3) ) )
+                );
+
+              });
+            });
+          }
+        }
+        
+        function getResults( event_id ) {
+        
+          $.each( events, function( index, item ) {
+            if ( item.id == event_id ) {
+              eventJSON = item;
+            }            
+          });
+         
+          if ( !eventJSON ) {
+            return;
+          }
+          
+          getEntrants();
+
+          if ( eventJSON.results == 0 ) {
+            $( "#results-btn" ).html( "Make Results Public" );
+            $( "#results-btn" ).data( "value", 1 );
+          } else {
+            $( "#results-btn" ).html( "Make Results Private" );
+            $( "#results-btn" ).data( "value", 0 );
+          }
+          
+          $( "#runs_per_heat" ).val( eventJSON.runs_per_heat );
+
+          $( "#run-groups-ul" ).empty();
+          $( "#save-btn" ).removeClass( "btn-warning" );
+
+          // get classes
+          $.getJSON( "<?php echo apiHref; ?>classes/year/" + dateFormat( eventJSON.date_ts *1000, "yyyy" ),
+          			 function( json ) { 
+            classes = json;
+
+            var admin = $.parseJSON( eventJSON.admin );
+            if ( admin && admin.comp_group_id ) {
+              eventJSON.comp_group_id = admin.comp_group_id;
+            }
+          
+            // get categories
+            $.getJSON( "<?php echo apiHref; ?>db/comp_categories",
+                       { 'group_id' : eventJSON.comp_group_id },
+                       function( json ) {
+              categories = json;
+              
+              $.getJSON( "<?php echo apiHref; ?>/db/results/count",
+                         { 'event_id' : eventJSON.id },
+                         function( count ) {
+                if ( count == 0 ) {
+
+                  $( "#results-div" )
+                    .append( $( "<div/>", { 'class' : "alert alert-info" } )
+                               .html( "Please wait while registration data is imported..." )
+                    )
+                    .append( $( "<div/>", { 'class' : "progress progress-info progress-striped active" } )
+                               .append( $( "<div/>", { 'class' : "bar", 'width' : "100%" } ) ) 
+                    );
+                    
+                    setTimeout( function() { importResults( eventJSON.id ) }, 100 );
+                    
+                } else {
+         
+                  for( var r=1; r<=eventJSON.run_groups; r++ ) {
+                    $( "#run-groups-ul" )
+                      .append( $( "<li/>", { 'id' : 'run-group-li-' + r } )
+                        .append( $( "<a/>", { 'data-group' : r, 'href' : "#" } )
+                          .html( "Run Group " + String.fromCharCode(64+r) )
+                          .on( 'click', function() { getGroup( this ) } )
+                        )
+                      );
+                  }
+                  $( "#run-groups-ul" )
+                    .append( $( "<li/>", { 'id' : 'run-group-li-0' } )
+                      .append( $( "<a/>", { 'data-group' : 0, 'href' : "#" } )
+                        .html( "Add Entries" )
+                        .on( 'click', function() { getGroup( this ) } )
+                      )
+                    );
+
+                  if ( group == 0 ) {
+                    $( "#run-groups-ul" )
+                      .find( ">:first-child" )
+                      .find( ">:first-child" )
+                      .trigger( 'click' );
+                  }
+                }
+              });
+            });
+          });
+
+        }
+        
+        $( "#discard-btn" ).click( function() {
+          discardChanges = true;
+          allChanges = {};
+          anyChanges = false;
+          $( "#save-btn" ).removeClass( "btn-warning" );
+          $( "#save-div" ).hide();
+          getGroup( newGroup );
+        });
+        
+        $( "#runs_per_heat" ).change( function() {
+
+          $.post( "<?php echo apiHref; ?>/db/events/" + eventJSON.id,
+                  { 'runs_per_heat' : $( "#runs_per_heat" ).val() },
+                  function( json ) {
+            if ( json.updated == 1 ) {
+              eventJSON.runs_per_heat = $( "#runs_per_heat" ).val();
+              getGroup( currentGroup );
+            }
+          });
+        });
+        
+        $( "#results-btn" ).click( function() {
+        
+                  
+          $.post( "<?php echo apiHref; ?>/db/events/" + eventJSON.id,
+                  { 'results' : $( "#results-btn" ).data( 'value' ) },
+                  function( json ) {
+
+            if ( json.updated == 1 ) {
+            
+              eventJSON.results = $( "#results-btn" ).data( 'value' )
+              if ( eventJSON.results == 0 ) {
+                $( "#results-btn" ).html( "Make Results Public" );
+                $( "#results-btn" ).data( "value", 1 );
+              } else {
+                $( "#results-btn" ).html( "Make Results Private" );
+                $( "#results-btn" ).data( "value", 0 );
+              }            
+            }
+          });
+        })
+
+        $( "#save-btn" ).click( function() {
+        
+          $( "#save-btn" ).removeClass( "btn-warning" );
+          var errors = 0;
+        
+          if ( $( "#save-div" ).is( ":visible" ) ) {
+            $( "#save-div" ).hide();
+          }
+        
+          var data = {};
+          $.each( allChanges, function( id, isModified ) {
+
+            if ( isModified ) {
+              var entry = {};
+              var times = [];
+              var elements = $( '[data-id="' + id + '"]' );
+              $.each( elements, function( index, element ) {
+
+                var field = $( element ).data( 'field' );
+
+                if ( field == 'raw' ) {
+                  var index = $( element ).data( 'index' );
+                  if ( typeof times[ index-1 ] == 'undefined' ) {
+                    times[ index-1 ] = {};
+                  }
+                  times[ index-1 ][ 'raw' ] = $( element ).val();
+
+                } else if ( field == 'penalty' ) {
+                  var index = $( element ).data( 'index' );
+                  if ( typeof times[ index-1 ] == 'undefined' ) {
+                    times[ index-1 ] = {};
+                  }
+                  times[ index-1 ][ 'penalty' ] = $( element ).val();
+
+                } else {
+                  entry[ field ] = $( element ).val();
+                }
+              });
+              entry[ 'all_times' ] = times;
+              entry[ 'id' ] = id;
+              data[ id ] = entry;
+
+            } // if ( isModified )
+            $( "#status-" + id ).empty();
+          });
+
+          $.post( "<?php echo apiHref; ?>results/update/" + $( "#event_id" ).val(),
+                  data,
+                  function( results ) {
+            $.each( results, function( index, result ) {
+
+               if ( result.inserted ) {
+                 $( "#" + result.div + "-div" ).empty(); 
+                 $( "#" + result.div + "-div" )
+                  .append( $( "<div/>", { 'class' : "alert alert-success" } ).html( result.name + " added at " + String.fromCharCode( parseInt( result.run_group ) + 64 ) + result.position  )
+                    .append( $( "<button/>", { 'class' : "close pull-right" } )
+                    .html( "&times;" )
+                    .on( 'click', function() { $( this ).parent().parent().remove(); } ) ) );
+                 allChanges[ result.div ] = false;
+               } else if ( result.updated ) {
+                 var now = new Date();
+                 $( "#status-" + result.id ).empty();
+                 $( "#status-" + result.id )
+                  .append( $( "<div/>" ).html( "PAX Time: " + result.pax_time ) )
+                  .append( $( "<div/>", { 'class' : "alert alert-success" } ).html( "Successfully updated at " + now.format( "h:MM:ss tt" ) ) ) ;
+                 allChanges[ result.id ] = false;
+               }
+               getEntrants();
+            });
+               
+          });
+
+          anyChanges = false;
+          $( "#runs_per_heat" ).removeAttr( 'disabled' );
+          $( "#save-btn" ).addClass( "btn-success" );
+        });
+        
+        $( "#search_hide" ).click( function() {
+          $( "#search_div" ).slideUp();
+        });
+
+        $( "#search_name" ).typeahead({ 
+          source: function( query, process ) {
+            return entrant_list;
+          },
+          updater: function( item ) {
+            item = $( "<div/>" ).html( item ).text();
+            // console.log( item );
+            $.getJSON( "<?php echo apiHref; ?>results/entrants/" + eventJSON.id,
+                       { 'name' : item },
+                       function( json ) {
+              $( "#search_results" ).empty();
+              $( "#search_results" ).append( $( "<div/>" ).html( $( "<strong/>" ).append( item ) ) );
+              $.each( json, function( index, item ) {
+                $( "#search_results" )
+                  .append( $( "<div/>" )
+                    .html( item[ 'class' ] + "/" +  item[ 'category' ] + ": " + String.fromCharCode( parseInt( item[ 'run_group' ] )+64 ) + item[ 'position' ] )
+                  );
+              });
+              $( "#search_div" ).slideDown();
+            });
+            return item;
+          }
+        });
+        
+        function getEntrants() {
+          $.getJSON( "<?php echo apiHref; ?>results/entrants/" + eventJSON.id, function( json ) {
+            entrant_list = json;
+          });
+        }
+                
+        function importResults( event_id ) {
+
+          $.post( "<?php echo apiHref; ?>results/import/" + event_id, function( json ) {
+
+            $( "#results-div" ).empty();
+            if ( json.error != undefined ) {
+              $( "#results-div" )
+                .delay( 2500 )
+                .append( $( "<div/>", { 'class' : "alert alert-error" } )
+                           .append( "An error occurred when importing registration data." )
+                           .append( json.error )
+                );
+            } else {
+            
+              var div = $( "<div/>", { 'class' : "alert" } )
+                           .append( json.entry_forms + " entry forms were found for this event and " + json.result_rows + " result entries were created." )
+
+              $( "#results-div" ).append( div );
+              
+              if ( json.entry_forms == 0 ) {
+                div.addClass( "alert-error" );
+              } else {
+                div.addClass( "alert-info" );
+                div
+                  .append( "Please wait while results are loaded..." );
+
+              $( "#results-div" )
+                  .append( $( "<div/>", { 'class' : "progress progress-info progress-striped active" } )
+                    .append( $( "<div/>", { 'class' : "bar", 'width' : "100%" } ) ) );
+
+                if ( json.errors > 0 ) {
+                  $( "#results-div" )
+                    .append( $( "<div/>", { 'class' : "alert alert-error" } )
+                               .append( json.errors + " result entries were unable to be created." )
+                    );
+                }
+
+                setTimeout( function() { getResults( event_id ); }, 100 );
+              }
+            }
+          });
+        }
+        
+        function trackChange( element ) {
+          var id = $( element ).data( 'id' );
+          allChanges[ id ] = true;
+          anyChanges = true;
+          $( "#save-btn" ).removeAttr( "disabled" );
+          $( "#save-btn" ).removeClass( "btn-success" );
+          $( "#save-btn" ).addClass( "btn-warning" );
+          $( "#runs_per_heat" ).attr( 'disabled', "disabled" );
+        }
+
+        $( "#event_id" ).change( function() {
+          $( "#results-div" ).empty();
+          $( "#run-groups-ul" ).empty();
+          $( "#search_name" ).val( "" );
+          group = 0;
+          getResults( $( this ).val() );
+        });
+
+        getEvents();
+
+      </script>
+
+<?php Display::closeBody(); ?>

@@ -1,0 +1,100 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  require_once "results_pdf.php";
+
+  require_once osDir."fpdf-1.7/fpdf.php";
+  
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    if ( $user[ 'organization_id' ] != 0 ) {
+      $q = new Query( "organizations" );
+      $org = $q->selectById( $user[ 'organization_id' ] );
+    }
+  }
+
+  $id = 0;
+  if ( !empty( $_SERVER[ 'REQUEST_URI' ] ) ) {
+    $uri = $_SERVER[ 'REQUEST_URI' ];
+    if ( strpos( $_SERVER[ 'REQUEST_URI' ], '?' ) !== false ) {
+      $uri = substr( $_SERVER[ 'REQUEST_URI' ], 1, strpos( $_SERVER[ 'REQUEST_URI' ], '?' ) - 1 );
+    }
+    $id = substr( $uri, strrpos( $uri, '/' ) + 1 );
+    if ( !is_numeric( $id ) ) {
+      $id = 0;
+    }
+  }
+
+  if ( $id == 0 ) {
+    header( "Location: ".baseHref );
+  }
+
+  $q = new Query( "events" );
+  $event = 
+    $q->joinOn( "event_type", array( "name" ) )
+      ->joinOn( "organization", array( "name", "shortname", "url", "privileges" ) )
+      ->joinOn( "site", array( "name" ) )
+      ->timestamps( true )
+      ->selectById( $id );
+
+  $showResults = 
+    !empty( $event ) &&
+    ( ( $event[ 'results' ] == 1 ) ||
+      ( !empty( $user ) && ( $user[ 'organization_id' ] == $event[ 'organization_id' ] ) ) );
+
+  $q = new Query( "results" );
+  $results = 
+    $q->addWhere( "event_id", $event[ 'id' ] )
+      ->addWhere( "comp_category_id", 0, "!=" )
+      ->addWhere( "noshow", 0 )
+      ->addOrder( "name_last" )
+      ->addOrder( "name_first" )
+      ->select();
+
+  // this will be slow, figure out a better way
+  foreach( $results as &$result ) {
+    if ( $result[ 'registration_id' ] == 0 ) {
+      $result[ 'scca_number' ] = "";
+    } else {
+      $q = new Query( "registrations" );
+      $registration = 
+        $q->addWhere( "id", $result[ 'registration_id' ] )
+          ->joinOn( "entrant" )
+          ->selectOne();
+      $result[ 'entrant_scca_number' ] = $registration[ 'entrant_scca_number' ];
+    }
+  }
+
+  $cols = array( 
+    "name_first" => "First Name",
+    "name_last" => "Last Name",
+    "class" => "Class",
+    "category" => "Local Class",
+    "class_rank" => "Rank",
+    "entrant_scca_number" =>  "Member #",
+    "car" => "Car Information",
+  );
+
+  $widths = array( 
+    "name_first" => 20,
+    "name_last" => 20,
+    "class" => 15,
+    "category" => 20,
+    "class_rank" => 10,
+    "entrant_scca_number" => 20,
+    "car" => 55
+  );
+
+  $doc_title =
+    preg_replace( "/ /", "_", $org[ 'shortname' ] )."_".
+    date( "m-d-Y", $event[ 'date_ts' ] ).".pdf";
+
+  $pdf = new ResultsPDF( $event );
+  $pdf->SetTitle( $doc_title );
+  $pdf->AliasNbPages();
+  $pdf->resultsTable( $cols, $widths, $results );
+  $pdf->Output( $doc_title, "I");
+?>

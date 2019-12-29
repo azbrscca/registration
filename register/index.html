@@ -1,0 +1,1148 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+
+  $event = array();
+  if ( !empty( $_SERVER[ 'REQUEST_URI' ] ) ) {
+    $uri = $_SERVER[ 'REQUEST_URI' ];
+    if ( strpos( $_SERVER[ 'REQUEST_URI' ], '?' ) !== false ) {
+      $uri = substr( $_SERVER[ 'REQUEST_URI' ], 1, strpos( $_SERVER[ 'REQUEST_URI' ], '?' ) - 1 );
+    }
+    $id = substr( $uri, strrpos( $uri, '/' ) + 1 );
+    if ( is_numeric( $id ) ) {
+      $id = intval( $id );
+      $q = new Query( "events" );
+      $q->joinOn( "organization" )
+        ->joinOn( "site" )
+        ->joinOn( "event_type" )
+        ->timestamps( true );
+
+      $event = $q->selectById( $id );
+      if ( !empty( $event ) ) {
+
+        unset( $event[ 'organization_event_types' ] );
+
+        if ( !$event[ 'public' ] ) {
+          header( "Location: ".baseHref );
+        }
+
+        $event[ 'organization_privileges' ] =
+        json_decode( $event[ 'organization_privileges' ], true );
+
+        $now = time();
+
+        $_SESSION[ 'event_id' ] = $event[ 'id' ];
+
+        if ( $now > $event[ 'registration_close_ts' ] ) {
+          $event[ 'status' ] = "closed";
+        } else if ( $now > $event[ 'registration_open_ts' ] ) {
+          $event[ 'status' ] = "open";
+        } else if ( $now < $event[ 'date_ts' ] ) {
+          $event[ 'status' ] = "will open";
+        } else {
+          $event[ 'status' ] = "unknown";
+        }
+
+        $q = new Query( "registrations" );
+
+
+        $q->addWhere( 'event_id', $event[ 'id' ] );
+        $event[ 'comp_count' ] = $q->count();
+        $event[ 'to_count' ] = $q->addWhere( 'time_only_reg', 1 )->count();
+
+        $event[ 'comp_full' ] =
+          ( ( $event[ 'comp_limit' ] > 0 ) &&
+            ( $event[ 'comp_count' ] >= $event[ 'comp_limit' ] ) ) ||
+          ( ( $event[ 'registration_limit' ] > 0 ) &&
+            ( $event[ 'comp_count' ] >= $event[ 'registration_limit' ] ) );
+        $event[ 'to_full' ] =
+          ( ( $event[ 'to_limit' ] > 0 ) &&
+            ( $event[ 'to_count' ] >= $event[ 'to_limit' ] ) );
+      }
+    }
+  }
+
+
+  if ( !empty( $_POST ) && ( $event[ 'status' ] == "open" ) ) {
+    $args = Functions::cleanArray( $_POST );
+    $entrant = $args[ 'entrant' ];
+
+    $car = $args[ 'car' ];
+    $registration = $args[ 'registration' ];
+
+    $q = new Query( "entrants" );
+    $q->updateById( $entrant );
+
+    $car[ 'entrant_id' ] = $entrant[ 'id' ];
+
+    $q = new Query( "cars" );
+    $car['make'] = preg_replace('/[^0-9a-z ]/i', '', $car['make']);
+    $car['model'] = preg_replace('/[^0-9a-z ]/i', '', $car['model']);
+    if ( empty( $car[ 'id' ] ) ) {
+      $car[ 'id' ] = $q->insertNew( $car );
+      $registration[ 'to_car_id' ] = $car[ 'id' ];
+    } else {
+      $q->updateById( $car );
+    }
+
+    $registration[ 'car_id' ] = $car[ 'id' ];
+    $registration[ 'entrant_id' ] = $entrant[ 'id' ];
+
+    $q = new Query( "registrations" );
+
+    /* calculate entry fee */
+    $tos = ( $event[ 'time_only_reg' ] == 1 );
+
+    $entry_fees = json_decode( $event[ 'organization_entry_fees' ], true );
+    if ( !empty( $event[ 'entry_fees' ] ) ) {
+      $entry_fees = json_decode( $event[ 'entry_fees' ], true );
+    }
+
+    $fee = 0;
+    if ( !empty( $entry_fees ) ) {
+      if ( $entrant[ 'scca_status' ] == 1 ) {
+        $fee += $entry_fees[ 'scca_comp_online' ];
+        if ( $tos && ( $registration[ 'time_only_reg' ] == 1 ) ){
+          $fee += $entry_fees[ 'scca_to_online' ];
+        }
+      } else {
+        $fee += $entry_fees[ 'wknd_comp_online' ];
+        if ( $tos && ( $registration[ 'time_only_reg' ] == 1 ) ){
+          $fee += $entry_fees[ 'wknd_to_online' ];
+        }
+      }
+    }
+    $registration[ 'entry_fee' ] = $fee;
+    /* / calculate entry fee */
+
+    /*
+      check for registration id in case the user
+      registered, then hit the back button to
+      change something: prevents duplicates
+    */
+    $q->addWhere( 'entrant_id', $entrant[ 'id' ] )
+      ->addWhere( 'event_id', $event[ 'id' ] );
+    if ( $q->count() > 0 ) {
+      $existing_reg = $q->only( "id" )->selectOne();
+      $registration[ 'id' ] = $existing_reg[ 'id' ];
+    }
+
+    if ( $registration[ 'id' ] == 0 ) {
+      $registration[ 'id' ] = $q->insertNew( $registration );
+    } else {
+      $q->updateById( $registration );
+    }
+
+    /* more error checking should happen here??? */
+    $_SESSION[ 'registration_id' ] = $registration[ 'id' ];
+    header( "Location: ".baseHref."events/registered.html" );
+  }
+
+  $user = array();
+  $org = array();
+  $registered = false;
+
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    if ( $user[ 'organization_id' ] != 0 ) {
+      $q = new Query( "organizations" );
+      $org = $q->selectById( $user[ 'organization_id' ] );
+    }
+  }
+
+  if ( !empty( $event ) && !empty( $user ) ) {
+    $q = new Query( "cars" );
+    $cars =
+      $q->addWhere( "entrant_id", $user[ 'id' ] )
+        ->addOrder( "make" )
+        ->addOrder( "model" )
+        ->addOrder( "year" )
+        ->select();
+    $carsJSON = json_encode( $cars );
+
+    $q = new Query( "registrations" );
+    $q->addWhere( 'entrant_id', $user[ 'id' ] )
+      ->addWhere( 'event_id', $event[ 'id' ] );
+    $registered = ( $q->count() == 1 );
+  }
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+  empty( $event ) ? $admin = array() : $admin = json_decode( $event[ 'admin' ], true );
+?>
+<?php if ( !empty( $event ) ) { ?>
+      <div class="page-header">
+        <h3>Event Registration
+          <small>
+            Welcome to registration for the
+            <span class="text-success"><?php echo $event[ 'organization_name' ]; ?><?php if ( !empty( $event[ 'name' ] ) ) { echo ' '.$event[ 'name' ]; } ?></span>
+            event taking place on
+            <span class="text-success"><?php echo date( "l, F j, Y", $event[ 'date_ts' ] ); ?></span>
+            at
+            <span class="text-success"><?php echo $event[ 'site_name' ]; ?></span>.
+          </small>
+        </h3>
+      </div>
+
+      <div class="row-fluid">
+        <div class="span12">
+          <div class="alert">
+            <i class="icon-warning-sign icon-large"></i>
+            2017 SCCA rules no longer allow SA2000 and M2000 helmets!
+            Please review the
+            <a href="http://cdn.growassets.net/user_files/scca/downloads/000/018/378/2017_Solo_helmet_cert_decals.pdf?1477497419">Required Helmet Certification Decals</a>
+            quick reference sheet published by the SCCA. Check the decal on your helmet ensure that your helmet will be legal <em>before</em> you show up to an event!
+          </div>
+        </div>
+      </div>
+
+<?php } ?>
+
+<?php
+  if ( empty( $event ) || ( $event[ 'status' ] == "unknown" ) ) {
+    if ( is_numeric( $id ) ) {
+?>
+      <div class="row-fluid">
+        <div class="span12">
+          <div class="alert">
+            The specified event does not exist. Please check the registration link and try again.
+          </div>
+        </div>
+      </div>
+<?php
+    } else {
+?>
+      <div class="row-fluid">
+        <div class="span12">
+          <div class="alert alert-error">
+            Ahhh... something went wrong. Whoops.
+          </div>
+        </div>
+      </div>
+<?php
+    }
+  } else if ( $event[ 'status' ] == "closed" ) {
+?>
+      <div class="row-fluid">
+        <div class="span12">
+          <div class="alert">
+            Online registration for this event closed on
+            <?php echo date( "l, F j, Y", $event[ 'registration_close_ts' ] ); ?>
+            at
+            <?php echo date( "g:i a", $event[ 'registration_close_ts' ] ); ?>.
+            If you need to cancel your registration, please send an email to <a href="mailto:<?php echo $event[ 'organization_contact_email' ]; ?>?subject=Cancelation for <?php echo date( "F j", $event[ 'date_ts' ] ); ?> event"><?php echo $event[ 'organization_contact_email' ]; ?></a>.
+          </div>
+        </div>
+      </div>
+<?php
+  } else if ( $event[ 'status' ] == "will open" ) {
+?>
+      <div class="row-fluid">
+        <div class="span12">
+          <div class="alert alert-info">
+            Online registration for this will event open on
+            <?php echo date( "l, F j, Y", $event[ 'registration_open_ts' ] ); ?>
+            at
+            <?php echo date( "g:i a", $event[ 'registration_open_ts' ] ); ?>.
+          </div>
+        </div>
+      </div>
+<?php
+  } else if ( $event[ 'status' ] == "open" ) {
+   if ( empty( $user ) ) {
+?>
+              <div class="alert alert-info">
+                Registering for events requires establishing an account.
+                If you already have an account, please log in with your username and password
+                via the form located in the navigation bar. If you do not have an account,
+                please click the Create Account button located in the navigation bar.
+              </div>
+<?php
+    } else if ( empty( $cars ) ) {
+?>
+              <div class="alert">
+                Your <a href="<?php echo baseHref; ?>garage/index.html">Garage</a> is empty!
+                Before you can sign up for an event, at least one car must be created.
+              </div>
+<?php
+    } else {
+      $showForm = !$event[ 'comp_full' ] || $registered;
+?>
+      <div class="row-fluid">
+        <div class="span12">
+          <div class="alert hide" id="event-status">
+          </div>
+        </div>
+      </div>
+
+      <form action="#" class="form-horizontal<?php if ( !$showForm ) { echo " hide"; } ?>" id="registration-form" method="post" name="registration-form">
+        <fieldset>
+          <input id="event_id" name="registration[event_id]" type="hidden" value="<?php echo $event[ 'id' ]; ?>" />
+          <input id="entrant_id" name="entrant[id]" type="hidden" value="<?php echo $user[ 'id' ]; ?>" />
+          <input id="registration_id" name="registration[id]" type="hidden" value="0" />
+
+          <div class="row-fluid">
+            <div class="span12">
+              <div class="hide" id="help">
+              </div>
+            </div>
+          </div>
+
+					<?php if ( trim( $event[ 'details' ] ) != "" ) { ?>
+          <div class="row-fluid">
+            <div class="span12">
+            	<div class="well well-small">
+								<h4>Event Details</h4>
+								<?php echo htmlspecialchars_decode( $event[ 'details' ] ); ?>
+							</div>
+            </div>
+          </div>
+          <?php } ?>
+
+          <div class="row-fluid">
+
+            <div class="span6">
+              <h4>
+                Driver Information
+                <button data-target="driver-div" class="btn btn-mini" type="button">Hide</button>
+              </h4>
+
+            <div id="driver-div">
+
+
+              <div class="control-group" id="entrant_name_first-cg">
+                <label class="control-label" for="entrant_name_first">First Name</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_name_first" name="entrant[name_first]" type="text" value="<?php echo $user[ 'name_first' ]; ?>" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_name_last-cg">
+                <label class="control-label" for="entrant_name_last">Last Name</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_name_last" name="entrant[name_last]" type="text" value="<?php echo $user[ 'name_last' ]; ?>" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_email-cg">
+                <label class="control-label" for="entrant_email">Email</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_email" name="entrant[email]" type="text" value="<?php echo $user[ 'email' ]; ?>" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_address_street-cg">
+                <label class="control-label" for="entrant_address_street">Street Address</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_address_street" name="entrant[address_street]" type="text" value="<?php echo $user[ 'address_street' ]; ?>" />
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_address_city-cg">
+                <label class="control-label" for="entrant_address_city">City</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_address_city" name="entrant[address_city]" type="text" value="<?php echo $user[ 'address_city' ]; ?>" />
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_address_state-cg">
+                <label class="control-label" for="entrant_address_state">State</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_address_state" name="entrant[address_state]" type="text" value="<?php echo $user[ 'address_state' ]; ?>" />
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_address_zip-cg">
+                <label class="control-label" for="entrant_address_zip">Zip Code</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_address_zip" name="entrant[address_zip]" type="text" value="<?php echo $user[ 'address_zip' ]; ?>" />
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_phone_home-cg">
+                <label class="control-label" for="entrant_phone_home">Home Phone</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_phone_home" name="entrant[phone_home]" type="text" value="<?php echo $user[ 'phone_home' ]; ?>" />
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_phone_work-cg">
+                <label class="control-label" for="entrant_phone_work">Work Phone</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_phone_work" name="entrant[phone_work]" type="text" value="<?php echo $user[ 'phone_work' ]; ?>" />
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_club-cg">
+                <label class="control-label" for="entrant_club">Sponsor/Club/School</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_club" name="entrant[club]" type="text" value="<?php echo $user[ 'club' ]; ?>" />
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_scca_number-cg">
+                <label class="control-label" for="entrant_scca_number">SCCA Member Number</label>
+                <div class="controls">
+                  <input class="input-small" id="entrant_scca_number" name="entrant[scca_number]" type="text" value="<?php echo $user[ 'scca_number' ]; ?>" />
+                  <span class="help-inline" id="scca-help"><i class="icon-info-sign icon-large"></i></span>
+                  <div class="help-block" id="entrant_scca_help_block"></div>
+                </div>
+              </div>
+
+              <input id="entrant_scca_date" name="entrant[scca_date]" type="hidden" value="<?php echo $user[ 'scca_date' ]; ?>" />
+              <input id="entrant_scca_status" name="entrant[scca_status]" type="hidden" value="<?php echo $user[ 'scca_status' ]; ?>" />
+
+              <div class="control-group" id="entrant_emer_name-cg">
+                <label class="control-label" for="entrant_emer_name">Emergency Contact Name</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_emer_name" name="entrant[emer_name]" type="text" value="<?php echo $user[ 'emer_name' ]; ?>" />
+                </div>
+              </div>
+
+              <div class="control-group" id="entrant_emer_phone-cg">
+                <label class="control-label" for="entrant_emer_phone">Emergency Contact Phone Number</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="entrant_emer_phone" name="entrant[emer_phone]" type="text" value="<?php echo $user[ 'emer_phone' ]; ?>" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="span6">
+            <h4>
+              Car Information
+              <button data-target="car-div" class="btn btn-mini" type="button">Hide</button>
+            </h4>
+
+
+            <div id="car-div">
+
+              <div class="control-group" id="car_id-cg">
+                <label class="control-label" for="car_id">Available Cars</label>
+                <div class="controls">
+                  <select class="input-xlarge" id="car_id" name="car[id]">
+                  <?php foreach( $cars as $car ) { ?>
+                    <option value="<?php echo $car[ 'id' ]; ?>">
+                      <?php echo $car[ 'year' ]." ".
+                                  $car[ 'make' ]." ".
+                                  $car[ 'model' ]." (".
+                                  $car[ 'color' ].")";
+                      ?>
+                    </option>
+                  <?php } ?>
+                  </select>
+                  <span class="help-block">
+                    To add or remove cars from this list visit your <a href="<?php echo baseHref; ?>garage">Garage</a>.
+                  </span>
+                </div>
+              </div>
+
+
+              <div class="control-group" id="car_year-cg">
+                <label class="control-label" for="car_year">Year</label>
+                <div class="controls">
+                  <select class="input-small" id="car_year" name="car[year]">
+<?php for( $year=1950; $year <= intval( date( "Y", time() ) ) + 1; $year++ ) { ?>
+                    <option><?php echo $year; ?></option>
+<?php } ?>
+                  </select>
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="car_make-cg">
+                <label class="control-label" for="car_make">Make</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="car_make" name="car[make]" type="text" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="car_model-cg">
+                <label class="control-label" for="car_model">Model</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="car_model" name="car[model]" type="text" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+                <div class="control-group" id="car_color-cg">
+                <label class="control-label" for="car_color">Color</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="car_color" name="car[color]" type="text" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+              <div class="control-group" id="car_engine-cg">
+                <label class="control-label" for="car_engine">Engine</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="car_engine" name="car[engine]" type="text" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+                <div class="control-group" id="car_tire_brand-cg">
+                <label class="control-label" for="car_tire_brand">Tire Manufacturer</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="car_tire_brand" name="car[tire_brand]" type="text" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+              <div class="control-group" id="car_tire_size-cg">
+                <label class="control-label" for="car_tire_size">Tire Size</label>
+                <div class="controls">
+                  <input class="input-xlarge" id="car_tire_size" name="car[tire_size]" type="text" />
+                </div>
+              </div>
+
+              <div class="control-group" id="car_tire_type-cg">
+                <label class="control-label" for="car_tire_type">Tire Type</label>
+                <div class="controls">
+                  <select id="car_tire_type" name="car[tire_type]">
+                    <option value="0">Competition/Race</option>
+                    <option value="1">Street</option>
+                    <option value="2">Snow/Rally</option>
+                  </select>
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="car_modifications-cg">
+                <label class="control-label" for="car_modifications">Performance Modifications</label>
+                <div class="controls">
+                  <textarea class="input-xlarge" id="car_modifications" name="car[modifications]" rows="3"></textarea>
+                </div>
+              </div>
+<?php
+  switch( $event[ 'event_type_id' ] ) {
+    case 2: // rallycross
+      $class_field = "scca_rallyx_class_id";
+      $q = new Query( "scca_rallyx_classes" );
+      $classes =
+        $q->addOrder( "id" )
+          ->select();
+    break;
+
+    case 1: // autocross
+    default:
+      $class_field = "scca_class_id";
+      $q = new Query( "scca_classes" );
+      $classes =
+        $q->addWhere( "date_effective", date( "Y", $event[ 'date_ts' ] ), "=", "year" )
+          ->addOrder( "id" )
+          ->select();
+    break;
+  }
+?>
+              <div class="control-group" id="car_<?php echo $class_field; ?>-cg">
+                <label class="control-label" for="car_<?php echo $class_field; ?>">SCCA <?php echo $event[ 'event_type_name' ]; ?> Class</label>
+                <div class="controls">
+                  <select id="car_<?php echo $class_field; ?>" name="car[<?php echo $class_field; ?>]">
+                    <option value="">Please Select</option>
+<?php foreach( $classes as $c ) { ?>
+                    <option value="<?php echo $c[ 'id' ]; ?>"><?php echo $c[ 'name' ]; ?></option>
+<?php } ?>
+                  </select>
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              </div>
+
+            </div>
+
+          </div> <!-- row -->
+
+          <div class="row-fluid">
+
+            <div class="span6">
+              <h4>
+                Event Registration Information
+                <button data-target="registration-div" class="btn btn-mini" type="button">Hide</button>
+              </h4>
+
+              <div id="registration-div">
+<?php
+  $q = new Query( "comp_categories" );
+
+  if ( !empty( $admin[ 'comp_group_id' ] ) ) {
+    $q->addWhere( "group_id", $admin[ 'comp_group_id' ] );
+  } else {
+    $q->addWhere( "group_id", $event[ 'comp_group_id' ] );
+  }
+
+  $categories =
+    $q->addWhere( "public", 1 )
+      ->addOrder( "name" )
+      ->select();
+?>
+        <div class="control-group" id="registration_comp_category_id-cg">
+          <label class="control-label" for="registration_comp_category_id">Competition Category</label>
+          <div class="controls">
+            <select id="registration_comp_category_id" name="registration[comp_category_id]">
+              <option value="">Please Select</option>
+  <?php foreach( $categories as $c ) { ?>
+              <option value="<?php echo $c[ 'id' ]; ?>"><?php echo $c[ 'name' ]; ?></option>
+  <?php } ?>
+            </select>
+            <span class="label label-info">Required</span>
+          </div>
+        </div>
+
+  <?php if ( $event[ 'car_numbers' ] == 1 ) {
+    $q = new Query( "registrations" );
+    $q->addWhere( 'event_id', $event[ 'id' ] );
+    $q->addWhere( 'entrant_id', $user[ 'id' ], "!=" );
+    $numbers = array_values( $q->distinct( "car_number" ) );
+    $event[ 'unavailable_numbers' ] = array();
+    foreach( $numbers as $item ) {
+      array_push( $event[ 'unavailable_numbers' ], $item[ 'car_number' ] );
+    }
+  ?>
+        <div class="control-group" id="registration_car_number-cg">
+          <label class="control-label" for="registration_car_number">Car Number</label>
+          <div class="controls">
+            <select class="input-small" id="registration_car_number" name="registration[car_number]">
+              <option value="">Select</option>
+              <?php foreach( range(1,999) as $n ) { ?>
+                <?php if ( !in_array( $n, $event[ 'unavailable_numbers' ] ) ) { ?>
+                <option value="<?php echo $n; ?>"><?php echo $n; ?></option>
+                <?php } ?>
+              <?php } ?>
+            </select>
+            <span class="label label-info">Required</span>
+          </div>
+        </div>
+  <?php } ?>
+
+  <?php if ( $event[ 'time_only_reg' ] == 1 ) { ?>
+        <div class="control-group" id="registration_time_only_reg-cg">
+          <label class="control-label" for="registration_time_only_reg">Add Time Only Runs</label>
+          <div class="controls">
+            <select class="input-small" id="registration_time_only_reg" name="registration[time_only_reg]">
+              <option value="1">Yes</option>
+              <option value="0">No</option>
+            </select>
+            <span class="help-inline" id="time-only-help"><i class="icon-info-sign icon-large"></i></span>
+          </div>
+        </div>
+
+        <div class="control-group" id="registration_to_car_id-cg">
+          <label class="control-label" for="registration_to_car_id">Time Only Car</label>
+          <div class="controls">
+          <select class="input-xlarge" id="registration_to_car_id" name="registration[to_car_id]">
+            <?php foreach( $cars as $car ) { ?>
+              <option value="<?php echo $car[ 'id' ]; ?>">
+                <?php echo $car[ 'year' ]." ".
+                            $car[ 'make' ]." ".
+                            $car[ 'model' ]." (".
+                            $car[ 'color' ].")";
+                ?>
+              </option>
+            <?php } ?>
+          </select>
+          </div>
+        </div>
+  <?php } ?>
+  <?php if ( $event[ 'organization_privileges' ][ 'configuration' ] == "true" ) { ?>
+        <div class="control-group">
+          <label class="control-label">Run Group Preference
+          <div class="text-info hide" id="run-groups-notice">
+            Run group choice is not available for the selected competition category.
+          </div>
+
+          </label>
+  <?php for( $r=1; $r<4; $r++ ) { ?>
+          <div class="controls">
+            <div class="input-prepend">
+              <span class="add-on"><?php echo $r; ?></span>
+              <select class="input-small" id="registration_run_group_<?php echo $r; ?>" name="registration[run_group_<?php echo $r; ?>]">
+                <option value="0">Any</option>
+  <?php for( $g=1; $g<5; $g++ ) { ?>
+                <option value="<?php echo $g; ?>"><?php echo chr( $g + 64 ); ?></option>
+  <?php } ?>
+              </select>
+            </div>
+          <?php if ( $r == 1 ) { ?>
+            <span class="help-inline" id="run-group-help"><i class="icon-info-sign icon-large"></i></span>
+          <?php } ?>
+          </div>
+  <?php } ?>
+        </div>
+  <?php
+    $q = new Query( "work_positions" );
+
+    if ( !empty( $admin[ 'work_positions' ] ) ) {
+      $q->addWhere( "organization_id", $admin[ 'work_positions' ] );
+    } else {
+      $q->addWhere( "organization_id", $event[ 'organization_id' ] );
+    }
+
+    $positions =
+      $q->addWhere( "public", 1 )
+        ->addOrder( "name" )
+        ->select();
+  ?>
+               <div class="control-group">
+                  <label class="control-label">Work Position Preference</label>
+  <?php for( $r=1; $r<4; $r++ ) { ?>
+                  <div class="controls">
+                    <div class="input-prepend">
+                      <span class="add-on"><?php echo $r; ?></span>
+                      <select class="input-medium" id="registration_work_pos_<?php echo $r; ?>" name="registration[work_pos_<?php echo $r; ?>]">
+                        <option value="0">Any</option>
+  <?php   foreach( $positions as $p ) { ?>
+                        <option value="<?php echo $p[ 'id' ]; ?>"><?php echo $p[ 'name' ]; ?></option>
+  <?php   } ?>
+                      </select>
+                    </div>
+                    <?php if ( $r == 1 ) { ?>
+                      <span class="help-inline" id="work-position-help"><i class="icon-info-sign icon-large"></i></span>
+                    <?php } ?>
+                  </div>
+  <?php } ?>
+                </div>
+
+                <div class="control-group" id="registration_codriver-cg">
+                  <label class="control-label" for="registration_codriver">Co-Driver(s)</label>
+                  <div class="controls">
+                    <input class="input-xlarge" id="registration_codriver" name="registration[codriver]" type="text" />
+                    <div class="help-block">
+                      <div class="text-warning"><i class="icon-warning-sign icon-large"></i> Completing this field does <strong>not</strong> register co-drivers for the event!</div>
+                      <span id="codriver-help"><i class="icon-info-sign icon-large"></i> More Information</span>
+                    </div>
+                  </div>
+                </div>
+<?php } else { ?>
+
+<?php } ?>
+
+        <div class="control-group" id="registration_comments-cg">
+          <label class="control-label" for="registration_comments">Registration Comments</label>
+          <div class="controls">
+          <textarea class="input-xlarge" id="registration_comments" name="registration[comments]"></textarea>
+          </div>
+        </div>
+        </div>
+      </div>
+
+            <div class="span6">
+              <h4>
+                Event Supplemental Regulations
+              </h4>
+
+              <div id="regulations-div">
+                <div class="alert">
+                  <p><i class="icon-warning-sign"></i> Please ensure you read and understand the supplemental regulations for <?php echo $event[ 'organization_name' ]; ?> Events.</p>
+                  <?php if ( $event[ 'organization_supps_url' ] != "" ) { ?>
+                  <p class="centered"><a class="btn btn-info" href="<?php echo $event[ 'organization_supps_url' ]; ?>" target="_newwin"><?php echo $event[ 'organization_name' ]; ?> Supplemental Regulations</a></p>
+                  <?php } ?>
+
+                  <?php if ( !empty( $event[ 'regulations' ] ) ) { ?>
+                  <p><?php echo htmlspecialchars_decode( $event[ 'regulations' ] ); ?></p>
+                  <?php } else { ?>
+                  <p><?php echo htmlspecialchars_decode( $event[ 'organization_regulations' ] ); ?></p>
+                  <?php } ?>
+                  <p>By registering online you agree to abide by the stated supplemental regulations or may be asked to leave the event without a refund.</p>
+                </div>
+              </div>
+
+            </div>
+
+          </div> <!-- row -->
+
+          <div class="row-fluid">
+            <div class="span12">
+              <div class="alert alert-info hide" id="info-div"></div>
+              <div class="alert alert-error hide" id="error-div">
+              </div>
+
+<?php // hack, remove this.... ?>
+<?php if ( $event[ 'id' ] == 173 ) { ?>
+
+              <div class="alert">
+                <h4>Attention Novice Drivers</h4>
+                Participation for this event requires at least one prior autox or prior approval from the registrar     and Solo Safety Stewards for the event.
+                <br/>In addition, novices will be required to have an instructor ride along on their first run.
+              </div>
+
+<?php } ?>
+
+              <div class="alert alert-danger hide" id="cancel-div">
+                <h5>Are you sure you want to cancel?</h5>
+                <button class="btn btn-danger" id="confirm-cancel-btn" type="button">Yes, Cancel</button>
+                <button class="btn" id="dismiss-cancel-btn" type="button">No, Do Not Cancel</button>
+              </div>
+
+              <div class="form-actions" id="form-btns">
+                <button class="btn btn-success" id="register-btn" type="submit">Register!</button>
+              </div>
+            </div>
+          </div> <!-- row -->
+
+        </fieldset>
+      </form>
+<?php
+    }
+  }
+?>
+
+<?php Display::closeContainer( !empty( $user ) ); ?>
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/bootstrap-datepicker.js"></script>
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/dateformat-1.2.3.js"></script>
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/scca/verify-membership.js"></script>
+
+      <script type="text/javascript">
+
+<?php if ( !empty( $event ) && ( $event[ 'status' ] == "open" ) && !empty( $user ) ) { ?>
+
+        var comp_full = <?php echo ( $event[ 'comp_full' ] ? 'true' : 'false' ); ?>;
+        var car_sync = true;
+
+        $( "#codriver-help" ).popover({
+          'html' : "true",
+          'placement' : "right",
+          'trigger' : "hover",
+          'title' : "Co-drivers",
+          'content' : "Each entrant sharing the same car must register for the event individually. Completing this field provides information to assist the event organizers, it does <strong>not</strong> register co-drivers for the event.",
+        });
+
+        $( "#scca-help" ).popover({
+          'html' : "true",
+          'placement' : "right",
+          'trigger' : "hover",
+          'title' : "SCCA Member Number",
+          'content' : "If you are an SCCA member, enter your member number and we will verify your membership with the SCCA's online database. Please be sure to enter your first and last name as they appear on your SCCA membership card."
+        });
+
+        $( "#run-group-help" ).popover({
+          'html' : "true",
+          'placement' : "right",
+          'trigger' : "hover",
+          'title' : "Run Group Preference",
+          'content' : "Each entrant can specify up to three run group <strong>preferences</strong> if not partipicating in classes or categories that have pre-assinged run groups. Run group preferences are addressed 'first-registered, first served' and based on the needs of the event. Event organizers reserve the right to bypass these preferences when necessary."
+        });
+
+        $( "#work-position-help" ).popover({
+          'html' : "true",
+          'placement' : "right",
+          'trigger' : "hover",
+          'title' : "Work Position Preference",
+          'content' : "Each entrant can specify up to three work position <strong>preferences</strong>. Work positions are addressed 'first-registered, first served' and based on the needs of the event. Event organizers reserve the right to bypass these preferences when necessary."
+        });
+
+        $( "#time-only-help" ).popover({
+          'html' : "true",
+          'placement' : "right",
+          'trigger' : "hover",
+          'title' : "Time Only Runs",
+          'content' : "Sign up for an additional set of runs for this event. Time Only Runs (or fun runs) may incur additional cost - though it is usally lower than the original entry fee and thus a <strong>great</strong> value - and may also require an additional work assignment. See the <?php echo $event[ 'organization_name' ]; ?> supplemental regulations for more information.",
+        });
+
+        var carsJSON = $.parseJSON( '<?php echo addslashes( $carsJSON ); ?>' ), cars = {};
+        $.each( carsJSON, function( index, car ) {
+          cars[ car.id ] = car;
+        });
+
+        var requiredIds = Array();
+        $( ".control-group" ).each( function() {
+          var id;
+          $( this ).find( ".control-label" ).each( function() {
+            id = $( this ).attr( 'for' );
+          });
+
+          var required = false;
+          $( this ).find( ".label" ).each( function() {
+            if ( $( this ).html().indexOf( 'Required' ) !== false ) {
+              requiredIds[ requiredIds.length ] = id;
+            }
+          });
+        });
+
+        $( ".btn-mini" ).click( function() {
+          var divId = "#" + $( this ).data( 'target' );
+          if ( $( divId ).is( ":visible" ) ) {
+            $( divId ).slideUp();
+            $( this ).html( "Show" );
+          } else {
+            $( divId ).slideDown();
+            $( this ).html( "Hide" );
+          }
+        });
+
+        function cancelRegistration() {
+          $.post( "<?php echo apiHref; ?>db/registrations/" + $( "#registration_id" ).val(),
+            { '_method' : "delete" },
+            function( json ) {
+
+            if ( json == 1 ) {
+              window.location.href = "<?php echo baseHref; ?>events/canceled.html";
+            }
+          });
+        }
+
+        $( "#car_id" ).change( function() {
+          if ( car_sync ) {
+             $( "#registration_to_car_id" ).val( $( this ).val() );
+          }
+          $.each( cars[ $( this ).val() ], function( key, val ) {
+            if ( $( "#car_" + key ).length > 0 ) {
+              $( "#car_" + key ).val( $( "<div/>" ).html( val ).text() );
+            }
+          });
+        });
+
+        function checkCategory() {
+          var categoryId = $( "#registration_comp_category_id" ).val();
+          var sccaClassId = $( "#car_scca_class_id" ).val();
+          var tireType = parseInt( $( "#car_tire_type" ).val() );
+
+          if ( ( categoryId != '' ) && !isNaN( categoryId ) ) {
+
+            $.getJSON( "<?php echo apiHref; ?>db/comp_categories/" + categoryId,
+                   function( category ) {
+
+              $.getJSON( "<?php echo apiHref; ?>db/scca_classes/" + sccaClassId,
+                   function( sccaClass ) {
+
+                var valid = true;
+
+                if ( category.run_group_choice == 0 ) {
+                  $( "#registration_run_group_1" ).attr( 'disabled', "disabled" );
+                  $( "#registration_run_group_2" ).attr( 'disabled', "disabled" );
+                  $( "#registration_run_group_3" ).attr( 'disabled', "disabled" );
+                  $( "#run-groups-notice" ).slideDown();
+                } else {
+                  $( "#registration_run_group_1" ).removeAttr( 'disabled' );
+                  $( "#registration_run_group_2" ).removeAttr( 'disabled' );
+                  $( "#registration_run_group_3" ).removeAttr( 'disabled' );
+                  $( "#run-groups-notice" ).slideUp();
+                }
+
+                if ( ( sccaClassId != '' ) && !isNaN( sccaClassId ) ) {
+                  sccaClassId = parseInt( sccaClassId );
+
+                  var allowedClasses = jQuery.parseJSON( category.classes );
+                  if ( allowedClasses[ 0 ] != "all" ) {
+                    var classType = "type_" + sccaClass.type;
+                    if ( allowedClasses.indexOf( classType ) == -1 ) {
+                      valid = false;
+                      var p = $( "<p/>" );
+                      p.append( $( "<i/>", { 'class' : "icon-info-sign" } ) );
+                      p.append( " The " + category.name + " category does not allow cars in class " + sccaClass.name + "." );
+                      p.append( " You will be allowed to complete your registration, however you may be required to change your car class and/or category at the event. " );
+                      p.append( " Please refer to the <?php echo $event[ 'organization_name' ]; ?> Supplimental Regulations for more information." );
+                      $( "#info-div" ).append( p );
+                      if ( $( "#info-div" ).is( ":hidden" ) ) {
+                        $( "#info-div" ).slideDown();
+                      }
+                    }
+                  }
+                }
+
+                if ( ( category.street_tires_only == 1 ) && ( tireType == 0 ) ) {
+                  var p = $( "<p/>" );
+                  p.append( $( "<i/>", { 'class' : "icon-info-sign" } ) );
+                  p.append( " The category you have selected does not allow Competition/Race tires. Please adjust your competition category selection or the indicated type tire of your car. " );
+                  p.append( " You will be allowed to complete your registration, however you may be required to change your car class and/or category at the event. " );
+                  p.append( " Please refer to the <?php echo $event[ 'organization_name' ]; ?> Supplimental Regulations for more information." );
+                  $( "#info-div" ).append( p );
+
+                  valid = false;
+                  if ( $( "#info-div" ).is( ":hidden" ) ) {
+                    $( "#info-div" ).slideDown();
+                  }
+                }
+                return valid;
+              });
+            });
+          } else {
+            return false;
+          }
+        }
+
+        $( "#confirm-cancel-btn" ).click( function() {
+          cancelRegistration();
+        });
+
+        $( "#dismiss-cancel-btn" ).click( function() {
+          $( "#cancel-div" ).slideUp();
+        });
+
+        $( "#registration_comp_category_id" ).change( function() {
+          $( "#info-div" ).empty();
+          if ( $( "#info-div" ).is( ":visible" ) ) {
+          $( "#info-div" ).slideUp();
+          }
+          checkCategory();
+        });
+        $( "#car_scca_class_id" ).change( function() {
+          $( "#info-div" ).empty();
+          if ( $( "#info-div" ).is( ":visible" ) ) {
+          $( "#info-div" ).slideUp();
+          }
+          checkCategory();
+        });
+        $( "#car_tire_type" ).change( function() {
+          $( "#info-div" ).empty();
+          if ( $( "#info-div" ).is( ":visible" ) ) {
+          $( "#info-div" ).slideUp();
+          }
+          checkCategory();
+        });
+
+
+        $( "#registration-form" ).submit( function() {
+
+          var errors = 0;
+          $( "#error-div" ).empty();
+          $( "#error-div" ).slideUp();
+
+          $.each( requiredIds, function( index, field ) {
+            if ( ( $( "#" + field ).val() == null ) ||
+               ( $( "#" + field ).val().length == 0 ) ) {
+              $( "#" + field + "-cg" ).addClass( "error" );
+              errors++;
+            } else {
+              $( "#" + field + "-cg" ).removeClass( "error" );
+            }
+          });
+
+//          if ( !checkCategory() ) {
+//            errors++;
+//          }
+
+          if ( errors > 0 ) {
+            $( "#error-div" ).append( $( "<p/>" ).html( "Some required fields are incomplete or invalid. Please review the highlighted items and try again." ) );
+            $( "#error-div" ).slideDown();
+          }
+
+          return ( errors == 0 );
+
+        });
+
+        $( "#registration_to_car_id" ).change( function() {
+          car_sync = false;
+        });
+
+        $( "#registration_time_only_reg" ).change( function() {
+          ( parseInt( $( this ) .val() ) == 0 ) ? $( "#registration_to_car_id" ).attr( 'disabled', "true" ) : $( "#registration_to_car_id" ).removeAttr( 'disabled' );
+        });
+
+        // pull data on page load
+        var entrantId = <?php echo $user[ 'id' ]; ?>;
+
+          var car_id = 0, to_car_id = 0;
+          $.getJSON( "<?php echo apiHref; ?>db/registrations",
+                { 'entrant_id' : $( "#entrant_id" ).val(), 'event_id' : $( "#event_id" ).val() },
+                function( json ) {
+            if ( json.length ) {
+              regJson = json[ 0 ];
+              $.each( regJson, function( key, val ) {
+                if ( $( "#registration_" + key ).length > 0 ) {
+                  $( "#registration_" + key ).val( $( "<div/>" ).html( val ).text() );
+                }
+              });
+              car_sync = ( regJson.car_id == regJson.to_car_id );
+              $( "#car_id" ).val( regJson.car_id );
+              $( "#car_id" ).trigger( 'change' );
+              $( "#registration_time_only_reg" ).trigger( 'change' );
+
+              var help_div =
+                $( "<div/>", { 'class' : "alert alert-info" } )
+                  .append( $( "<p/>" )
+                  .html(
+                    "You are already registered for this event. While registration is open you " +
+                    "may modify your information as many times as needed. Updating your registration " +
+                    " <strong>does not</strong> affect your place in line for run/work preferences." +
+                    " If you need to cancel your entry, click the 'Cancel Registration' button on the " +
+                    " bottom right of the page."
+                    )
+                  )
+
+              if ( comp_full ) {
+                help_div
+                  .append( $( "<p/>" )
+                    .html( "Registration for this event is full. You can still modify or cancel your entry online while registration is open." )
+                  );
+              }
+
+              $( "#help" ).empty();
+              $( "#help" ).append( help_div );
+              $( "#help" ).slideDown();
+
+              $( "#form-btns" )
+                .append(
+                $( "<button/>", { 'class' : 'btn btn-warning pull-right', 'id' : "cancel-btn", 'type' : "button" } )
+                  .html( "Cancel Registration" )
+                  .on( 'click', function() { $( "#cancel-div" ).slideDown() } )
+                );
+
+              } else {
+
+                if ( comp_full ) {
+                  $( "#register-btn" ).attr( 'disabled', "disabled" );
+                  $( "#event-status" )
+                    .empty()
+                    .append( $( "<h3/>" ).html( "Registration for this event is full." ) );
+
+                  $( "#event-status" ).slideDown();
+                } else {
+
+                  $.getJSON( "<?php echo apiHref; ?>registrations/previous/",
+                              { 'entrant_id' : $( "#entrant_id" ).val(),
+                                'organization_id' : <?php echo $event[ 'organization_id' ]; ?> },
+                              function( json ) {
+                    if ( json ) {
+                      $.each( json, function( key, val ) {
+                        if ( $( "#registration_" + key ).length > 0 ) {
+                          $( "#registration_" + key ).val( $( "<div/>" ).html( val ).text() );
+                        }
+                      });
+                      car_id = json.car_id;
+                      $( "#car_id" ).val( car_id );
+                      $( "#car_id" ).trigger( 'change' );
+                      to_car_id = json.to_car_id;
+                      $( "#to_car_id" ).val( to_car_id );
+                      car_sync = ( car_id == to_car_id );
+
+                      $( "#help" ).empty();
+                      $( "#help" ).append(
+                        $( "<div/>", { 'class' : "alert" } ).html(
+                        "You <strong>are not</strong> registered for this event. The Event Registration Information " +
+                       "has been filled in based on the last time you registered online for an event " +
+                       "with <?php echo $event[ 'organization_name' ]; ?>."
+                      )
+                    );
+                    $( "#help" ).slideDown();
+
+                  }
+                });
+              }
+            }
+
+          });
+
+          $( "#entrant_scca_number" ).change( function() {
+            var val = $.trim( $( "#entrant_scca_number" ).val() );
+            if ( val != "" ) {
+              verify_scca( 'entrant_' );
+            } else {
+              $( "#entrant_scca_help_block" ).empty();
+              $( "#entrant_scca_date" ).val( '' );
+              $( "#entrant_scca_status" ).val( 0 );
+            }
+          });
+
+          $( "#entrant_scca_number" ).trigger( 'change' );
+          checkCategory();
+
+<?php } ?>
+
+        </script>
+
+<?php Display::closeBody(); ?>

@@ -1,0 +1,118 @@
+<?php
+  require_once "../../../common/Common.php";
+  require_once "../../../db/Query.php";
+  
+  require_once "common.php";
+
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    $q = new Query( "organizations" );
+    $org = $q->selectById( $user[ 'organization_id' ] );
+  } else {
+    header( "Location: ".baseHref );    
+  }
+  Session::checkAccess( $user, $org );
+  
+  $redirect = true;
+  $q = new Query( "events" );
+  $q->joinOn( "site" );
+
+  if ( !empty( $_POST ) ) {
+    $args = Functions::cleanArray( $_POST );
+    if ( isset( $args[ 'id' ] ) &&
+         is_numeric( $args[ 'id' ] ) ) {
+      $event = $q->selectById( $args[ 'id' ] );
+      if ( !empty( $event ) &&
+           ( $event[ 'organization_id' ] == $user[ 'organization_id' ] ) ) {
+        $redirect = false;
+        $_SESSION[ 'event_id' ] = $event[ 'id' ];
+      }
+    }
+  } else if ( !empty( $_SESSION[ 'event_id' ] ) ) {
+    $event = $q->selectById( $_SESSION[ 'event_id' ] );
+    if ( !empty( $event ) &&
+         ( $event[ 'organization_id' ] == $user[ 'organization_id' ] ) ) {
+      $redirect = false;
+    }
+  }
+
+  if ( $redirect ) {
+    header( "Location: index.html" );
+  }
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+?>
+
+<?php configureNav( $event, $org ); ?>
+
+        <div class="row-fluid">
+
+<?php configurePills(); ?>
+
+          <div class="span9" id="configure-div">
+
+            <form class="form-horizontal" id="event-form" name="event-form">
+
+              <div class="control-group">
+                <label class="control-label" for="run_groups">Number of Run Groups</label>
+                <div class="controls">
+                  <select class="input-mini" id="run_groups" name="run_groups">
+<?php for( $i=1; $i<=8; $i++ ) { ?>
+                    <option value="<?php echo $i; ?>"<?php if ( $event[ 'run_groups' ] == $i ) { echo " selected"; } ?>><?php echo $i; ?></option>
+<?php } ?>
+                  </select>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label class="control-label" for="run_group_size">Maximum Group Size</label>
+                <div class="controls">
+                  <select class="input-mini" id="run_group_size" name="run_group_size">
+<?php for( $i=1; $i<=50; $i++ ) { ?>
+                    <option value="<?php echo $i; ?>"<?php if ( $event[ 'run_group_size' ] == $i ) { echo " selected"; } ?>><?php echo $i; ?></option>
+<?php } ?>
+                  </select>
+                </div>
+              </div>
+
+			  <div class="alert alert-error hide" id="error-div">Whoops, something went wrong. We were unable to save your changes.</div>
+			  <div class="alert alert-success hide" id="success-div">Your changes have been saved.</div>
+              
+              <div class="form-actions">
+                <button class="btn btn-primary" id="save-btn" type="button">Save Changes</button>
+                <button class="btn" id="clear-btn" type="reset">Clear Changes</button>
+              </div>              
+
+            </form>
+          </div>
+
+        </div>
+
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+        $( "#save-btn" ).click( function() {
+        
+          $( "#error-div" ).slideUp();
+          $( "#success-div" ).slideUp();
+        
+          $.post( "<?php echo apiHref; ?>/db/events/<?php echo $event[ 'id' ]; ?>",
+                  $( "#event-form" ).serialize(),
+                  function( json ) {
+            if ( json.updated == 0 ) {
+							$( "#error-div" ).slideDown();
+						} else {
+							$( "#success-div" ).slideDown();
+						}
+          });
+
+        });
+      </script>
+
+<?php Display::closeBody(); ?>

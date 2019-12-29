@@ -1,0 +1,233 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+  
+  $user = array();
+  $org = array();
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    if ( $user[ 'organization_id' ] != 0 ) {
+      $q = new Query( "organizations" );
+      $org = $q->selectById( $user[ 'organization_id' ] );
+    }
+  }
+
+  $id = 0;
+  if ( !empty( $_SERVER[ 'REQUEST_URI' ] ) ) {
+    $uri = $_SERVER[ 'REQUEST_URI' ];
+    if ( strpos( $_SERVER[ 'REQUEST_URI' ], '?' ) !== false ) {
+      $uri = substr( $_SERVER[ 'REQUEST_URI' ], 1, strpos( $_SERVER[ 'REQUEST_URI' ], '?' ) - 1 );
+    }
+    $id = substr( $uri, strrpos( $uri, '/' ) + 1 );
+    if ( !is_numeric( $id ) ) {
+      $id = 0;
+    }
+  }
+
+  if ( $id == 0 ) {
+    header( "Location: ".baseHref );
+  }
+
+  $q = new Query( "events" );
+  $event = 
+    $q->joinOn( "event_type", array( "name" ) )
+      ->joinOn( "organization", array( "name", "shortname", "url", "privileges" ) )
+      ->joinOn( "site", array( "name" ) )
+      ->timestamps( true )
+      ->selectById( $id );
+
+  $showResults = 
+    !empty( $event ) &&
+    ( ( $event[ 'results' ] == 1 ) ||
+      ( !empty( $user ) && ( $user[ 'organization_id' ] == $event[ 'organization_id' ] ) ) );
+
+  Display::openBody();
+  Display::navBar( $user, $org );
+  Display::openContainer();
+
+?>
+      <div class="row-fluid"> 
+        <div class="span12">
+<?php
+  if ( empty( $event ) ) {
+?>
+          <div class="alert">
+            Invalid event specified.
+          </div>
+<?php
+  } else if ( !$showResults ) {
+?>
+          <div class="page_header">
+            <h2><?php echo $event[ 'organization_name' ]." ".$event[ 'event_type_name' ]; ?>
+              <small>
+                <?php echo date( "l, F d, Y", $event[ 'date_ts' ] ); ?>
+                at
+                <?php echo $event[ 'site_name' ]; ?>
+              </small>
+            </h2>
+          </div>
+          <div class="alert">
+            Results for this event are not available.
+          </div>
+<?php
+  } else {
+
+    $privs = json_decode( $event[ 'organization_privileges' ], true );
+
+    $q = new Query( "results" );
+    $categories = 
+      $q->addWhere( "event_id", $event[ 'id' ] )
+        ->addOrder( "category" )
+        ->distinct( "comp_category_id" );
+?>
+          <div class="page_header">
+            <h2><?php echo $event[ 'organization_name' ]." ".$event[ 'event_type_name' ]; ?>
+              <small>
+                <?php echo date( "l, F d, Y", $event[ 'date_ts' ] ); ?>
+                at
+                <?php echo $event[ 'site_name' ]; ?>
+              </small>
+            </h2>
+          </div>
+
+<?php
+    foreach( $categories as $item ) {
+      $q = new Query( "comp_categories" );
+      $category = $q->selectById( $item[ 'comp_category_id' ] );
+
+      $q = new Query( "results" );
+      $q->addWhere( "event_id", $event[ 'id' ] )
+        ->addWhere( "comp_category_id", $category[ 'id' ] )
+        ->addWhere( "noshow", 0 )
+        ->addWhere( "fast_time", 0, "!=" );
+
+      if ( $category[ 'divide_by_class' ] == 1 ) {
+        $q->addOrder( "class" );
+      }
+
+      $results = 
+        $q->addOrder( "points", "desc" )
+          ->select();
+?>
+          <div class="row-fluid">
+            <div class="span12">
+              <div class="alert alert-info">
+                <h4><?php echo $category[ 'name' ]; ?></h4>
+              </div>
+              <table class="table table-bordered">
+<?php if ( empty( $results ) ) { ?>
+                <tr>
+                  <td>No results for this category.</td>
+                </tr>
+<?php } else { ?>
+                <thead>
+                  <th class="span1">&nbsp;</th>
+                  <th class="span3">Driver</th>
+                  <th class="span4">Car</th>
+                  <th class="span1">Class</th>
+                  <th class="span2">Fast Time</th>
+                  <th class="span2">PAX Time</th>
+                  <th class="span2">Time Rank</th>
+                  <th class="span2">PAX Rank</th>
+                  <th class="span2">Points</th>
+                </thead>
+                <tbody>
+<?php
+        $category_rank = 1;
+        $current_class = $results[ 0 ][ 'class'];
+        foreach( $results as $row ) {
+          if ( ( $category[ 'divide_by_class' ] == 1 ) &&
+                ( $current_class != $row[ 'class' ] ) ) {
+            $category_rank = 1;
+?>
+                  <tr><td colspan="9"></td></tr>
+<?php
+          }
+          $current_class = $row[ 'class' ];
+?>
+                  <tr class="<?php if ( $row[ 'pax_rank' ] == 1 ) { echo "alert-success"; } ?>" 
+                      style="<?php if ( ( $row[ 'time_rank' ] == 1 ) || ( $row[ 'pax_rank' ] == 1 ) ) { echo "font-weight: bold;"; } ?>">
+                    <td><?php echo $category_rank++; ?></td>
+                    <td><?php echo $row[ 'name' ]; ?></td>
+                    <td><?php echo $row[ 'car' ]; ?></td>
+                    <td><?php echo $row[ 'class' ]; ?></td>
+                    <td>
+                      <?php echo number_format( $row[ 'fast_time' ], 3 ); ?>
+                      <?php 
+                        if ( $privs[ 'results_data' ] == "all_times" ) {
+                          $all_times = json_decode( $row[ 'all_times' ], true );
+                      ?>
+                          <button class="btn btn-mini pull-right all-times-btn" data-rowid="<?php echo $row[ 'id' ]; ?>" type="button">All</button>
+                          <div class="hide" data-rowid="<?php echo $row['id']; ?>">
+                            <hr/>
+                          <?php foreach( $all_times as $run => $time ) { ?>
+                            <div>
+                                <?php 
+                                  $penalty = intval( $time[ 'penalty' ] );
+                                  echo ($run+1).". ";
+                                  if ( is_numeric( $time[ 'raw' ] ) ) {
+                                    echo number_format( $time[ 'raw' ] + $penalty, 3 );
+                                    if ( $penalty > 0 ) {
+                                      echo " (".($penalty/2).")";
+                                    }
+                                  } else {
+                                    echo $time[ 'raw' ];
+                                  }
+                                ?>
+                            </div>
+                          <?php } ?>
+                          </div>
+                      <?php
+                        }
+                      ?>
+                    </td>
+                    <td><?php echo number_format( $row[ 'pax_time' ], 3 ); ?></td>
+                    <?php if ( $category[ 'id' ] == 0 ) { ?>
+                    <td>-</td>
+                    <td>-</td>
+                    <?php } else { ?>
+                    <td><?php echo $row[ 'time_rank' ]; ?></td>
+                    <td><?php echo $row[ 'pax_rank' ]; ?></td>
+                    <?php } ?>
+                    <td>
+                      <?php
+                        switch( $privs[ 'results_method' ] ) {
+                          case "overall_pax":
+                            echo round( $row[ 'points' ] );
+                            break;
+
+                          case "pax_in_category":
+                            echo round( $row[ 'custom_result' ] ).' <span class="pull-right"> ('.round( $row[ 'points' ] ).')</span>';
+                            break;
+                        }
+                      ?>
+                    </td>
+                  </tr>
+<?php
+        }
+      }
+?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+<?php 
+    }
+  }
+?>
+        </div>
+      </div> <!-- row -->
+
+<?php Display::closeContainer(); ?>
+
+        <script type="text/javascript">
+          $( ".all-times-btn" ).click( function() {
+            var id = $( this ).data( 'rowid' );
+            var table = $( "div[data-rowid='" + id + "']" );
+            console.log( table );
+            $( table ).is( ":hidden" ) ? $( table ).slideDown() : $( table ).slideUp();
+          });
+        </script>
+
+<?php Display::closeBody(); ?>

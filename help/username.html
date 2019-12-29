@@ -1,0 +1,119 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../common/Emailer.php";
+  require_once "../db/Query.php";
+
+  $args = array();
+  if ( !empty( $_POST ) ) {
+
+    $args = Functions::cleanArray( $_POST );
+    if ( empty( $args[ 'name_first' ] ) &&
+         empty( $args[ 'name_last' ] ) &&
+         empty( $args[ 'email' ] ) ) {
+      $args[ 'error' ] = "Please enter your first name, last name, and email address.";
+    } else {
+      $q = new Query( "entrants" );
+
+      $q->addWhere( "email", $args[ 'email' ] );
+      $q->addWhere( "name_first", $args[ 'name_first' ] );
+      $q->addWhere( "name_last", $args[ 'name_last' ] );
+
+      $user = $q->selectOne();
+      if ( empty( $user ) ) {
+        $args[ 'error' ] = "Sorry, but we could not find an account matching that name and email address.";
+      } else {
+
+          $e = new Emailer();
+          $e->addRecipient( $user[ 'name_first' ].' '.$user[ 'name_last' ],
+                            $user[ 'email' ] )
+            ->setSubject( "Your Registration Username" )
+            ->setMessage( "Your Registration username is: ".$user[ 'username' ] );
+            
+          if ( $e->send() ) {
+            $args[ 'success' ] = "Success! We have emailed your account username to ".$user[ 'email' ].".";
+          } else {
+            $args[ 'error' ] = "We were unable to email your password. Please contact the system administrator.";
+          }
+
+      } 
+    }
+  }
+
+  Display::openBody();
+  Display::navBar( array(), array(), false );
+  Display::openContainer();
+?>
+      <div class="row-fluid">
+        <div class="span9">
+          <form action="username.html" class="form-horizontal" id="username-form" method="post" name="username-form">
+            <fieldset>
+
+              <legend>Recover Your Username</legend>
+
+<?php if ( !empty( $args[ 'success' ] ) ) { ?>
+              <div class="alert alert-success"><?php echo $args[ 'success' ]; ?></div>
+<?php } else { ?>
+
+              <div class="well">
+                Please provide your name and email address we will send an email containing your username.
+              </div>
+
+<?php   if ( !empty( $args[ 'error' ] ) ) { ?>
+              <div class="alert alert-error">
+                <?php echo $args[ 'error' ]; ?>
+              </div>
+<?php   } ?>
+
+
+
+              <div class="control-group" id="name_first-cg">
+                <label class="control-label" for="name_first">First Name</label>
+                <div class="controls">
+                  <input class="input-large" id="name_first" name="name_first" type="text">
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="name_last-cg">
+                <label class="control-label" for="name_last">Last Name</label>
+                <div class="controls">
+                  <input class="input-large" id="name_last" name="name_last" type="text">
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="email-cg">
+                <label class="control-label" for="email">Email</label>
+                <div class="controls">
+                  <input class="input-large" id="email" name="email" type="text">
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group success" id="username-cg" style="display: none;">
+               <label class="control-label" for="username">Username</label>
+                <div class="controls">
+                  <span class="input-xlarge uneditable-input" id="recovered-username"></span>
+                </div>
+              </div>
+
+              <div class="alert alert-error hide" id="error-div">
+              </div>
+
+              <div class="form-actions">
+                <button id="recover-btn" class="btn btn-primary" type="submit"><i class="icon-ok"></i> Recover Username</button>
+              </div>
+
+<?php } ?>
+
+            </fieldset>
+          </form>
+        </div><!--/span-->
+      </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript">
+      </script>
+
+<?php Display::closeBody(); ?>

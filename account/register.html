@@ -1,0 +1,317 @@
+<?php
+  require_once "../common/Common.php";
+  require_once "../db/Query.php";
+ 
+  Display::openBody();
+  Display::navBar( array(), array(), false );
+  Display::openContainer();
+?>
+      <div class="page-header">
+        <h3>Create an Account
+          <small>
+            Please complete this from to create your account.
+          </small>
+        </h3>
+      </div>
+
+      <div class="row-fluid">
+        <div class="span12">
+
+          <form action="welcome.html" class="form-horizontal" id="info-form" method="post" name="info-form">
+            <fieldset>
+              <input id="id" name="id" type="hidden" value="0" />
+
+              <div class="control-group" id="name_first-cg">
+                <label class="control-label" for="name_first">First Name</label>
+                <div class="controls">
+                  <input class="input-large" id="name_first" name="name_first" type="text"  value="<?php echo $args[ 'name_first' ]; ?>" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+ 
+              <div class="control-group" id="name_last-cg">
+                <label class="control-label" for="name_last">Last Name</label>
+                <div class="controls">
+                  <input class="input-large" id="name_last" name="name_last" type="text" value="<?php echo $args[ 'name_last' ]; ?>" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+ 
+              <div class="control-group" id="email-cg">
+                <label class="control-label" for="email">Email</label>
+                <div class="controls">
+                  <input class="input-large" id="email" name="email" type="text" value="<?php echo $args[ 'email' ]; ?>" />
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="dob-cg">
+                <label class="control-label" for="dob">Date of Birth</label>
+                <div class="controls">
+                	<div class="input-append">
+										<input class="input-medium" id="dob" name="dob" type="text" />
+										<span class="add-on date" id="dob-datepicker" data-date="">
+											<i class="icon-calendar"></i>
+										</span>
+				  				</div>
+                  <span class="label label-info">Required</span>
+                  <span class="help-block">Format: YYYY-MM-DD</span>
+                </div>
+              </div>
+
+              <div class="control-group" id="username-cg">
+                <label class="control-label" for="username">Username</label>
+                <div class="controls">
+                  <input class="input-large" id="username" name="username" type="text" />
+								  <button class="btn" data-value="<?php echo $args[ 'email' ]; ?>" id="use_email" type="button">Use     My Email</button>
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+              <div class="alert alert-error hide" id="username-error-div">
+                <i class="icon-remove"></i> Username is not available.
+              </div>
+              <div class="alert alert-success hide" id="username-success-div">
+                <i class="icon-ok"></i> Username is available.
+              </div>
+
+              <div class="control-group" id="password-cg">
+                <label class="control-label" for="password">Password</label>
+                <div class="controls">
+                  <input class="input-large" id="password" name="password" type="password">
+                  <span class="label label-info">Required</span>
+                  <p class="help-block">Passwords must be at least six characters long</p>
+                </div>
+              </div>
+              <div class="alert alert-error hide" id="password-error-div">
+              </div>
+
+              <div class="control-group" id="confirm-cg">
+                <label class="control-label" for="confirm">Confirm Password</label>
+                <div class="controls">
+                  <input class="input-large" id="confirm" type="password">
+                  <span class="label label-info">Required</span>
+                </div>
+              </div>
+              <div class="alert alert-error hide" id="confirm-error-div">
+              </div>
+ 
+              <div class="control-group" id="address_street-cg">
+                <label class="control-label" for="address_street">Street Address</label>
+                <div class="controls">
+                  <input class="input-large" id="address_street" name="address_street" type="text" />
+                </div>
+              </div>
+ 
+              <div class="control-group" id="address_city-cg">
+                <label class="control-label" for="address_city">City</label>
+                <div class="controls">
+                  <input class="input-large" id="address_city" name="address_city" type="text" />
+                </div>
+              </div>
+ 
+              <div class="control-group" id="address_state-cg">
+                <label class="control-label" for="address_state">State</label>
+                <div class="controls">
+                  <input class="input-large" id="address_state" name="address_state" type="text" />
+                </div>
+              </div>
+ 
+              <div class="control-group" id="address_zip-cg">
+                <label class="control-label" for="address_zip">Zip Code</label>
+                <div class="controls">
+                  <input class="input-large" id="address_zip" name="address_zip" type="text" />
+                </div>
+              </div>
+
+              <div class="control-group" id="phone_home-cg">
+                <label class="control-label" for="phone_home">Home Phone</label>
+                <div class="controls">
+                  <input class="input-large" id="phone_home" name="phone_home" type="text" />
+                </div>
+              </div>
+ 
+              <div class="control-group" id="phone_work-cg">
+                <label class="control-label" for="phone_work">Work Phone</label>
+                <div class="controls">
+                  <input class="input-large" id="phone_work" name="phone_work" type="text" />
+                </div>
+              </div>
+
+              <div class="control-group" id="club-cg">
+                <label class="control-label" for="club">Sponsor/Club/School</label>
+                <div class="controls">
+                  <input class="input-large" id="club" name="club" type="text" />
+                </div>
+              </div>
+ 
+              <div class="control-group" id="scca_number-cg">
+                <label class="control-label" for="scca_number">SCCA Member Number</label>
+                <div class="controls">
+                  <input class="input-small" id="scca_number" name="scca_number" type="text" />
+                  <span class="help-inline" id="scca-help"><i class="icon-info-sign icon-large"></i></span>
+                  <div class="help-block" id="scca_help_block"></div>
+                </div>
+              </div>
+
+              <input id="scca_date" name="scca_date" type="hidden" />
+              <input id="scca_status" name="scca_status" type="hidden" value="0" />
+  
+              <div class="control-group" id="emer_name-cg">
+                <label class="control-label" for="emer_name">Emergency Contact Name</label>
+                <div class="controls">
+                  <input class="input-large" id="emer_name" name="emer_name" type="text" />
+                </div>
+              </div>
+ 
+              <div class="control-group" id="emer_phone-cg">
+                <label class="control-label" for="emer_phone">Emergency Contact Phone Number</label>
+                <div class="controls">
+                  <input class="input-large" id="emer_phone" name="emer_phone" type="text" />
+                </div>
+              </div>
+
+							<div class="alert alert-error hide" id="error-div">
+							</div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" id="finish-btn" type="submit">Finish</button>
+              </div>
+
+            </fieldset>
+          </form>
+
+        </div>
+      </div>
+
+<?php Display::closeContainer(); ?>
+
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/bootstrap-datepicker.js"></script>
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/dateFormat-1.2.3.js"></script>
+      <script type="text/javascript" src="<?php echo baseHref; ?>js/scca/verifymembership.js"></script>
+
+      <script type="text/javascript">
+
+        $( "#scca-help" ).popover({
+          'html' : "true",
+          'placement' : "right",
+          'trigger' : "hover",
+          'title' : "SCCA Member Number",
+          'content' : "If you are an SCCA member, enter your member number and we will verify your membership status with the SCCA's online database. Please be sure to enter your first and last name as they appear on your SCCA membership card."
+        });
+
+        var requiredIds = Array(), validUsername = false;
+
+        $( ".control-group" ).each( function() {
+          var id;
+          $( this ).find( ".control-label" ).each( function() {
+            id = $( this ).attr( 'for' );
+          });
+          
+          var required = false;
+          $( this ).find( ".label" ).each( function() {
+            if ( $( this ).html().indexOf( 'Required' ) !== false ) {
+              requiredIds[ requiredIds.length ] = id;
+            }
+          });
+        });
+
+        function checkUsername() {
+          $( "#username-cg" ).removeClass( 'error' );
+          $( "#username-error-div" ).slideUp();
+          $( "#username-success-div" ).slideUp();
+
+          $.getJSON( "<?php echo apiHref; ?>usernames/available/",
+                     { "q" : $( "#username" ).val() },
+                     function( json ) {
+
+            if ( parseInt( json.r ) == 0 ) {
+              $( "#username-cg" ).removeClass( 'error' );
+              $( "#username-success-div" ).slideDown();             
+              validUsername = true;
+            } else {
+              $( "#username-cg" ).addClass( 'error' );
+              $( "#username-error-div" ).slideDown();
+              validUsername = false;
+            }
+          });
+        }
+
+				$('#dob-datepicker').datepicker({ 'format' : "yyyy-mm-dd" })
+				 .on( 'changeDate', function( e ) {
+					var date = new Date( e.date.valueOf() + 7*60*60*1000 );
+					$( "#dob" ).val( date.format( 'isoDate' ) );
+					$( "#dob" ).trigger( 'change' );
+				});
+		
+				$('#dob').focus( function() {
+				  if ( $( this ).val() == "Invalid Date" ) { $( this ).val( "" ); }
+				});
+		
+				$('#dob').change( function() {
+				  if ( checkDate( "#dob" ) ) {
+				      $( "#dob-datepicker" ).data( 'date', $( this ).val() );
+			    }
+					$('#dob-datepicker').datepicker( 'hide' );
+				});
+
+        $( "#scca_number" ).change( function() {
+          var val = $.trim( $( "#scca_number" ).val() );
+          if ( val != "" ) {
+            verify_scca( '' );
+          } else {
+            $( "#scca_help_block" ).empty();
+          }
+        });
+
+        $( "#info-form" ).submit( function() {
+
+          var errors = 0;
+
+          $.each( requiredIds, function( index, field ) {              
+            if ( $( "#" + field ).val().length == 0 ) {
+              $( "#" + field + "-cg" ).addClass( "error" );
+              errors++;
+            } else {
+              $( "#" + field + "-cg" ).removeClass( "error" );
+            }
+          });
+
+					if ( ( $( "#dob" ).val() != "" ) && !checkDate( "#dob" ) ) {
+						errors++;
+					}
+
+					if ( ( $( "#username" ).val() != "" ) && !validUsername ) {
+            $( "#username-cg" ).addClass( 'error' );
+            $( "#username-error-div" ).slideDown();
+						errors++;
+					} 
+					         
+          if ( ( $( "#scca_date" ).val() != "" ) && !checkDate( "#scca_date" ) ) {
+            errors++;
+          }
+
+          if ( errors == 0 ) {
+            return true;
+          } else {
+            $( "#error-div" ).html( "Please address the items highlighted and try again." );
+            $( "#error-div" ).slideDown();
+            // errors
+          }
+          
+          return false;
+        });
+
+	      $( "#use_email" ).click(  function() {
+			    $( "#username" ).val( $( this ).data( 'value' ) );
+			    $( "#username" ).trigger( 'change' );
+			  });
+        
+        $( "#username" ).change( function() {
+          checkUsername();
+        });
+
+        $( "#scca_number" ).trigger( 'change' );
+        
+      </script>
+
+<?php Display::closeBody(); ?>
