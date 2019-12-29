@@ -16,7 +16,7 @@ git checkout 2018-updates
 ```
 
 ***Important Notes***
-There are two configuration files, `common/Common.php` and `db/Connection.php` that are not in source control. If these files are removed from the `devreg` directory, they must manually be copied from the `config/registration`. Make sure to copy over the files with the `.dev` suffix.
+There are two configuration files, `common/Common.php` and `db/Connection.php` that are not in source control. If these files are removed from the `devreg.azbrscca.org` directory, they must manually be copied over from the `config/registration` directory. Make sure to copy over the files with the `.dev` suffix.
 
 If you edit something and need to reset things to checkout another branch, use `git reset --hard`.
 
