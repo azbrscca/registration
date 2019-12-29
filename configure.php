@@ -30,8 +30,5 @@
     }
   }
 
-  if ( $verbose ) { echo "deleting: ".$dir."/".$_SERVER[ 'SCRIPT_NAME' ]."\n"; }
-  unlink( $dir."/".$_SERVER[ 'SCRIPT_NAME' ] );
-  unlink( $dir."/README.md" );
-  echo "done\n";
+  echo "configure done!\n";
 ?>
