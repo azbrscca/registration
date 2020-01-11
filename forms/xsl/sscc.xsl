@@ -15,10 +15,12 @@
   </html>
   </xsl:template>
 
+	<xsl:template match="metadata">
+	</xsl:template>
+
   <xsl:template match="form">
 
     <div class="form">
-
       <div class="leftbar bordered padded pull-left">
 
         <div class="bordered centered">
