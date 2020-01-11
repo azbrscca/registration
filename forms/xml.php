@@ -63,7 +63,7 @@
     switch( $type ) {
 
       case 3:
-      default:
+//        echo "Separate, Competitions followed by TOs<br/>";
         $forms = $q->select();
 	      usort( $forms, "svsort_forms" );
         break;
