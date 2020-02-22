@@ -388,21 +388,26 @@
               );
     
               if ( form.comp_category_id == 0 ) {
-                sibling.append(
-                  $( "<p/>" )
-                    .append( "Competition Group & Position: " )
-                    .append(
-                      $( "<strong/>", { 'data-sibling' : mapEntry[ 'C' ][ 'id' ] } )
-                        .html( mapEntry[ 'C' ][ 'grid' ] + "</strong>" )
-                        .on( 'click', function() {
-                          $.scrollTo( $( "#form-" + $( this ).attr( 'data-sibling' ) ), 800, { offset: -60 } );
-                        })
-                        .on( 'hover', function() {
-                          $( this ).css( 'cursor', "pointer" );                        
-                        })
-                    )
-                );
-                sibling.attr( 'data-siblingOf', mapEntry[ 'C' ][ 'id' ] );
+                if ( mapEntry[ 'C' ] ) {
+                  sibling.append(
+                    $( "<p/>" )
+                      .append( "Competition Group & Position: " )
+                      .append(
+                        $( "<strong/>", { 'data-sibling' : mapEntry[ 'C' ][ 'id' ] } )
+                          .html( mapEntry[ 'C' ][ 'grid' ] + "</strong>" )
+                          .on( 'click', function() {
+                            $.scrollTo( $( "#form-" + $( this ).attr( 'data-sibling' ) ), 800, { offset: -60 } );
+                          })
+                          .on( 'hover', function() {
+                            $( this ).css( 'cursor', "pointer" );                        
+                          })
+                      )
+                  );
+                  sibling.attr( 'data-siblingOf', mapEntry[ 'C' ][ 'id' ] );
+                } else {
+                  sibling.append( $( "<p/>" ).append( "WARNING: No Competition Entry!" ) );
+                  sibling.attr( 'data-siblingOf', 0 );
+                }
               } else {
                 if ( mapEntry[ 'T' ] ) {
                   sibling.append(
