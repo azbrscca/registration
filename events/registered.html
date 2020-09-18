@@ -94,8 +94,8 @@
             </div>
             -->
 
-<?php if ( isset( $entry_fees ) ) { 
-        if( $orgIsAzbr ) { ?>
+<?php if ( isset( $entry_fees ) ) { ?>
+<?php if( $orgIsAzbr ) { ?>
           <div class="span4">
               <h4>Entry Feeeeees</h4>
               <div class="well well-small">
@@ -265,6 +265,7 @@
                 </div>
               </div>
             </div>
+<?php } ?>
 <?php } ?>
 
 <?php if ( !empty( $event[ 'payment_info' ] ) ) { ?>
