@@ -35,6 +35,8 @@
 
   $admin = json_decode( $event[ 'admin' ], true );
   $tos = ( $event[ 'time_only_reg' ] == 1 );
+  
+  $orgIsAzbr = ( $event[ 'organization_id' ] == 2 );
 
   if ( !empty( $event[ 'entry_fees' ] ) ) {
     $entry_fees = json_decode( $event[ 'entry_fees' ], true );
@@ -92,7 +94,93 @@
             </div>
             -->
 
-<?php if ( isset( $entry_fees ) ) { ?>
+<?php if ( isset( $entry_fees ) ) { 
+        if( $orgIsAzbr ) {?>
+          <div class="span4">
+              <h4>Entry Feeeeees</h4>
+              <div class="well well-small">
+                <table class="table table-bordered table-condensed">
+                  <tr>
+                    <td><strong>SCCA Members</strong></td>
+                    <td><strong>Competition</strong></td>
+                    <?php if ( $tos ) { ?>
+                    <td><strong>Time Only</strong></td>
+                    <?php } ?>
+                  </tr>
+                  <tr>
+                    <td>Registering Online</td>
+                    <td>$ <?php echo $entry_fees[ 'scca_comp_online' ]; ?></td>
+                    <?php if ( $tos ) { ?>
+                    <td>$ <?php echo $entry_fees[ 'scca_to_online' ]; ?></td>
+                    <?php } ?>
+                  </tr>
+                  <tr>
+                    <td>Registering On Site</td>
+                    <td>$ <?php echo $entry_fees[ 'scca_comp_onsite' ]; ?></td>
+                    <?php if ( $tos ) { ?>
+                    <td>$ <?php echo $entry_fees[ 'scca_to_onsite' ]; ?></td>
+                    <?php } ?>
+                  </tr>
+
+                  <tr>
+                    <td><strong>Non SCCA Members</strong></td>
+                    <td><strong>Competition</strong></td>
+                    <?php if ( $tos ) { ?>
+                    <td><strong>Time Only</strong></td>
+                    <?php } ?>
+                  </tr>
+                  <tr>
+                    <td>Registering Online</td>
+                    <td>$ <?php echo $entry_fees[ 'wknd_comp_online' ]; ?></td>
+                    <?php if ( $tos ) { ?>
+                    <td>$ <?php echo $entry_fees[ 'wknd_to_online' ]; ?></td>
+                    <?php } ?>
+                  </tr>
+                  <tr>
+                    <td>Registering On Site</td>
+                    <td>$ <?php echo $entry_fees[ 'wknd_comp_onsite' ]; ?></td>
+                    <?php if ( $tos ) { ?>
+                    <td>$ <?php echo $entry_fees[ 'wknd_to_onsite' ]; ?></td>
+                    <?php } ?>
+                  </tr>
+                </table>
+                <div>
+                  <p>
+                    <strong>
+                      Your Entry Fee: <i class="icon-usd"></i> <?php echo number_format( $registration[ 'entry_fee' ], 2 ); ?>
+                    </strong>
+                  </p>
+                  <p>
+                    <?php if ( $entry_fees['online_conditional'] == 1 ) { ?>
+                    Entry fee above valid only if paid online prior to the close of registration
+                    <?php } ?>
+                  </p>
+                  <p>
+                  <ul>
+                    <li>
+                      SCCA Membership:
+                      <?php if ( $registration[ 'entrant_scca_status' ] == 1  ) { ?>
+                      <span class="text-success">Verified</span>
+                      <?php } else if ( $registration[ 'entrant_scca_number' ] == "" ) { ?>
+                      No membership number entered.
+                      <?php } else { ?>
+                      <span class="text-warning">Could not verify!</span>
+                      <?php } ?>
+                    </li>
+                    <?php if ( $tos ) { ?>
+                    <li>
+                      Time Only Registration:
+                      <?php if ( $registration[ 'time_only_reg' ] == 1 ) { ?>
+                      Yes
+                      <?php } else { ?>
+                      No
+                      <?php } ?>
+                    </li>
+                    <?php } ?>
+                </div>
+              </div>
+            </div>
+<?php } else {?>
             <div class="span4">
               <h4>Entry Fees</h4>
               <div class="well well-small">
