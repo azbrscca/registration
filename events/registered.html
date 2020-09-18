@@ -95,92 +95,6 @@
             -->
 
 <?php if ( isset( $entry_fees ) ) { ?>
-<?php if( $orgIsAzbr ) { ?>
-          <div class="span4">
-              <h4>Entry Feeeeees</h4>
-              <div class="well well-small">
-                <table class="table table-bordered table-condensed">
-                  <tr>
-                    <td><strong>SCCA Members</strong></td>
-                    <td><strong>Competition</strong></td>
-                    <?php if ( $tos ) { ?>
-                    <td><strong>Time Only</strong></td>
-                    <?php } ?>
-                  </tr>
-                  <tr>
-                    <td>Registering Online</td>
-                    <td>$ <?php echo $entry_fees[ 'scca_comp_online' ]; ?></td>
-                    <?php if ( $tos ) { ?>
-                    <td>$ <?php echo $entry_fees[ 'scca_to_online' ]; ?></td>
-                    <?php } ?>
-                  </tr>
-                  <tr>
-                    <td>Registering On Site</td>
-                    <td>$ <?php echo $entry_fees[ 'scca_comp_onsite' ]; ?></td>
-                    <?php if ( $tos ) { ?>
-                    <td>$ <?php echo $entry_fees[ 'scca_to_onsite' ]; ?></td>
-                    <?php } ?>
-                  </tr>
-
-                  <tr>
-                    <td><strong>Non SCCA Members</strong></td>
-                    <td><strong>Competition</strong></td>
-                    <?php if ( $tos ) { ?>
-                    <td><strong>Time Only</strong></td>
-                    <?php } ?>
-                  </tr>
-                  <tr>
-                    <td>Registering Online</td>
-                    <td>$ <?php echo $entry_fees[ 'wknd_comp_online' ]; ?></td>
-                    <?php if ( $tos ) { ?>
-                    <td>$ <?php echo $entry_fees[ 'wknd_to_online' ]; ?></td>
-                    <?php } ?>
-                  </tr>
-                  <tr>
-                    <td>Registering On Site</td>
-                    <td>$ <?php echo $entry_fees[ 'wknd_comp_onsite' ]; ?></td>
-                    <?php if ( $tos ) { ?>
-                    <td>$ <?php echo $entry_fees[ 'wknd_to_onsite' ]; ?></td>
-                    <?php } ?>
-                  </tr>
-                </table>
-                <div>
-                  <p>
-                    <strong>
-                      Your Entry Fee: <i class="icon-usd"></i> <?php echo number_format( $registration[ 'entry_fee' ], 2 ); ?>
-                    </strong>
-                  </p>
-                  <p>
-                    <?php if ( $entry_fees['online_conditional'] == 1 ) { ?>
-                    Entry fee above valid only if paid online prior to the close of registration
-                    <?php } ?>
-                  </p>
-                  <p>
-                  <ul>
-                    <li>
-                      SCCA Membership:
-                      <?php if ( $registration[ 'entrant_scca_status' ] == 1  ) { ?>
-                      <span class="text-success">Verified</span>
-                      <?php } else if ( $registration[ 'entrant_scca_number' ] == "" ) { ?>
-                      No membership number entered.
-                      <?php } else { ?>
-                      <span class="text-warning">Could not verify!</span>
-                      <?php } ?>
-                    </li>
-                    <?php if ( $tos ) { ?>
-                    <li>
-                      Time Only Registration:
-                      <?php if ( $registration[ 'time_only_reg' ] == 1 ) { ?>
-                      Yes
-                      <?php } else { ?>
-                      No
-                      <?php } ?>
-                    </li>
-                    <?php } ?>
-                </div>
-              </div>
-            </div>
-<?php } else { ?>
             <div class="span4">
               <h4>Entry Fees</h4>
               <div class="well well-small">
@@ -234,6 +148,49 @@
                     <strong>
                       Your Entry Fee: <i class="icon-usd"></i> <?php echo number_format( $registration[ 'entry_fee' ], 2 ); ?>
                     </strong>
+                    <?php if( $orgIsAzbr ) { 
+                      if ( $registration[ 'entrant_scca_status' ] == 1  ) {
+                        if( $registration[ 'entry_fee' ] == 30 ) { ?>
+                          <!--
+                          <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
+                          <input type="hidden" name="cmd" value="_s-xclick">
+                          <input type="hidden" name="hosted_button_id" value="MCT4HMFYRQYNE">
+                          <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+                          <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+                          </form> -->
+                          THA 30
+                        <?php } else if ( $registration[ 'entry_fee' ] == 40 ) { ?>
+                          <!--
+                          <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
+                          <input type="hidden" name="cmd" value="_s-xclick">
+                          <input type="hidden" name="hosted_button_id" value="MCT4HMFYRQYNE">
+                          <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+                          <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+                          </form> -->
+                          THA 40 BUT MEMBER
+                        <?php } ?>
+                      <?php } else { 
+                        if( $registration[ 'entry_fee' ] == 40 ) { ?>
+                        <!--
+                          <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
+                          <input type="hidden" name="cmd" value="_s-xclick">
+                          <input type="hidden" name="hosted_button_id" value="MCT4HMFYRQYNE">
+                          <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+                          <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+                          </form> -->
+                          THA 40 BUT NONMEMBER
+                        <?php } else if ( $registration[ 'entry_fee' ] == 50 ) { ?>
+                          <!--
+                          <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
+                          <input type="hidden" name="cmd" value="_s-xclick">
+                          <input type="hidden" name="hosted_button_id" value="MCT4HMFYRQYNE">
+                          <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+                          <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+                          </form> -->
+                          THA 50
+                        <?php } ?>
+                      <?php } ?>
+                    <?php } ?>
                   </p>
                   <p>
                     <?php if ( $entry_fees['online_conditional'] == 1 ) { ?>
@@ -265,7 +222,6 @@
                 </div>
               </div>
             </div>
-<?php } ?>
 <?php } ?>
 
 <?php if ( !empty( $event[ 'payment_info' ] ) ) { ?>
