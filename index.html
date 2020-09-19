@@ -76,35 +76,38 @@
 
           var entrantId = <?php echo $entrantId; ?>, events = {}, start = 0, limit = 4;
           
+          function addButtonNewReg ( eventDiv ) {
+            eventDiv.prepend(
+              $( "<a/>", {
+                  'class' : "btn btn-block btn-small btn-success",
+                  'href' : "<?php echo baseHref; ?>register/" + eventId
+                })
+               .html( "Register for this event!" )
+            );
+          }
+          
+          function addButtonUpdateReg ( eventDiv ) {
+            eventDiv.prepend(
+              $( "<a/>", {
+                  'class' : "btn btn-block btn-small btn-success",
+                  'href' : "<?php echo baseHref; ?>register/" + eventId
+                })
+               .html( "Update/cancel your registration" )
+            );
+          }
+          
           function openRegistrationButton( eventDiv, eventId ) {
 
-            var isRegistered = false;
             if ( entrantId != 0 ) {
               $.getJSON( "<?php echo apiHref; ?>db/registrations/count",
                      { "entrant_id" : entrantId, "event_id" : eventId },
                      function( count ) {
                 if ( count ) {
-                  isRegistered = true;
+                  addButtonUpdateReg ( eventDiv );
+                } else {
+                  addButtonNewReg ( eventDiv );
                 }
               });
-            }
-            
-            if ( isRegistered ) {
-              eventDiv.prepend(
-                $( "<a/>", {
-                    'class' : "btn btn-block btn-small btn-success",
-                    'href' : "<?php echo baseHref; ?>register/" + eventId
-                  })
-                 .html( "Update/cancel your registration" )
-              );
-            } else {
-              eventDiv.prepend(
-                $( "<a/>", {
-                    'class' : "btn btn-block btn-small btn-success",
-                    'href' : "<?php echo baseHref; ?>register/" + eventId
-                  })
-                 .html( "Register for this event!" )
-              );
             }
           }
 
