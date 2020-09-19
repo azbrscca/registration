@@ -4,14 +4,22 @@
 
   $user = array();
   $org = array();
+  $compCategories = array();
   if ( Session::checkLogin() ) {
     $q = new Query( "entrants" );
     $user = $q->selectById( $_SESSION[ 'user_id' ] );
     $q = new Query( "organizations" );
     $org = $q->selectById( $user[ 'organization_id' ] );
+    
+    $compCatQuery = new Query( 'comp_categories' );
+    $compCatQuery->addWhere( 'organization_id', $org );
+    $compCategories = $compCatQuery->select();
   } else {
     header( "Location: ".baseHref );    
   }
+  
+  
+  
   Session::checkAccess( $user, $org );
 
   Display::openBody();
@@ -63,6 +71,7 @@
       <script type="text/javascript">
       
         var events, eventJSON, list, selected = 0;
+        var compCats = <?php echo json_encode($compCategories) ?>;
 <?php 
   if ( !empty( $_POST ) ) {
     $args = Functions::cleanArray( $_POST );
