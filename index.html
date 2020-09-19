@@ -76,7 +76,7 @@
 
           var entrantId = <?php echo $entrantId; ?>, events = {}, start = 0, limit = 4;
           
-          function addButtonNewReg ( eventDiv ) {
+          function addButtonNewReg ( eventDiv, eventId ) {
             eventDiv.prepend(
               $( "<a/>", {
                   'class' : "btn btn-block btn-small btn-success",
@@ -86,7 +86,7 @@
             );
           }
           
-          function addButtonUpdateReg ( eventDiv ) {
+          function addButtonUpdateReg ( eventDiv, eventId ) {
             eventDiv.prepend(
               $( "<a/>", {
                   'class' : "btn btn-block btn-small btn-success",
@@ -103,9 +103,9 @@
                      { "entrant_id" : entrantId, "event_id" : eventId },
                      function( count ) {
                 if ( count ) {
-                  addButtonUpdateReg ( eventDiv );
+                  addButtonUpdateReg ( eventDiv, eventId );
                 } else {
-                  addButtonNewReg ( eventDiv );
+                  addButtonNewReg ( eventDiv, eventId );
                 }
               });
             }
