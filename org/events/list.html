@@ -12,7 +12,7 @@
     $org = $q->selectById( $user[ 'organization_id' ] );
     
     $compCatQuery = new Query( 'comp_categories' );
-    $compCatQuest->setDebug( true );
+    $compCatQuest->setDebug( 'true' );
     $compCatQuery->addWhere( 'organization_id', $org );
     $compCategories = $compCatQuery->select();
   } else {
