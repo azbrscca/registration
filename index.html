@@ -99,15 +99,21 @@
           function openRegistrationButton( eventDiv, eventId ) {
 
             if ( entrantId != 0 ) {
-              $.getJSON( "<?php echo apiHref; ?>db/registrations/count",
-                     { "entrant_id" : entrantId, "event_id" : eventId },
-                     function( count ) {
+              $.ajax({ 
+                type: 'GET',
+                url: '<?php echo apiHref; ?>db/registrations/count',
+                dataType: 'json',
+                data: { "entrant_id" : entrantId, "event_id" : eventId },
+                async: false,
+                success: function( count ) {
                 if ( count ) {
                   addButtonUpdateReg ( eventDiv, eventId );
                 } else {
                   addButtonNewReg ( eventDiv, eventId );
                 }
               });
+            } else {
+              addButtonNewReg ( eventDiv, eventId );
             }
           }
 
