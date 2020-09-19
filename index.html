@@ -106,10 +106,11 @@
                 data: { "entrant_id" : entrantId, "event_id" : eventId },
                 async: false,
                 success: function( count ) {
-                if ( count ) {
-                  addButtonUpdateReg ( eventDiv, eventId );
-                } else {
-                  addButtonNewReg ( eventDiv, eventId );
+                  if ( count ) {
+                    addButtonUpdateReg ( eventDiv, eventId );
+                  } else {
+                    addButtonNewReg ( eventDiv, eventId );
+                  }
                 }
               });
             } else {
