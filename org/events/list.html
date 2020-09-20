@@ -205,7 +205,7 @@
                 }
 
                 row.append( $( "<td/>" ).append( item.car_year + ' ' + item.car_make + '/' + item.car_model + ' (' + item.car_color + ')' ) )
-                   .append( $( "<td/>", { 'class' : "span1" } ).append( categoryString ) );
+                   .append( $( "<td/>", { 'class' : "span1" } ).append( categoryString ) )
                    .append( $( "<td/>" ).append( "Registered On: " + item.date_created ) )
                    .append( $( "<td/>", { 'class' : "span6" } )
                       .append( "Comments: " )
@@ -216,8 +216,8 @@
               case 'names':
               default:
                 row.append( $( "<td/>", { 'class' : "span1" } ).append( index+1 ) )
-                   .append( $( "<td/>", { 'class' : "span2" } ).append( item.entrant_name_last + ', ' + item.entrant_name_first ) );
-                row.append( $( "<td/>", { 'class' : "span1" } ).append( categoryString ) );
+                   .append( $( "<td/>", { 'class' : "span2" } ).append( item.entrant_name_last + ', ' + item.entrant_name_first ) )
+                   .append( $( "<td/>", { 'class' : "span1" } ).append( categoryString ) );
                 if ( eventJSON.entry_forms == 0 ) {
                   var cancelBtn =
                     $( "<button/>", { 'class': "btn", 'id' : "cancel-btn-" + item.id, 'type' : "button" } )
