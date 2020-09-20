@@ -70,8 +70,8 @@
       <script type="text/javascript" src="<?php echo baseHref; ?>js/dateformat-1.2.3.js" /></script>
       <script type="text/javascript">
       
-        var events, eventJSON, list, selected = 0;
-        var compCats = <?php echo json_encode($compCategories) ?>;
+        var events, eventJSON, list, selected = 0, compCats = <?php echo json_encode($compCategories) ?>;
+        
 <?php 
   if ( !empty( $_POST ) ) {
     $args = Functions::cleanArray( $_POST );
