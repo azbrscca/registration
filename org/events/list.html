@@ -208,8 +208,14 @@
               case 'names':
               default:
                 row.append( $( "<td/>", { 'class' : "span1" } ).append( index+1 ) )
-                   .append( $( "<td/>", { 'class' : "span2" } ).append( item.entrant_name_last + ', ' + item.entrant_name_first ) )
-                   .append( $( "<td/>", { 'class' : "span1" } ).append( item.comp_category_id ) );
+                   .append( $( "<td/>", { 'class' : "span2" } ).append( item.entrant_name_last + ', ' + item.entrant_name_first ) );
+                var categoryString = "test";
+                $.each( compCats, function( index, cat ) {
+                  if( cat.id == item.comp_category_id ) {
+                    categoryString = cat.name;
+                  }
+                });
+                row.append( $( "<td/>", { 'class' : "span1" } ).append( categoryString ) );
                 if ( eventJSON.entry_forms == 0 ) {
                   var cancelBtn =
                     $( "<button/>", { 'class': "btn", 'id' : "cancel-btn-" + item.id, 'type' : "button" } )
