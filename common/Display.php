@@ -120,7 +120,8 @@
               <li class="dropdown">
                 <a href="#" class="dropdown-toggle" data-toggle="dropdown"> System <b class="caret"></b></a>
                 <ul class="dropdown-menu">
-		  <li><a href="<?php echo baseHref; ?>system/event_types.html">Event Types</a></li>
+                  <li><a href="<?php echo baseHref; ?>system/entrants.html">Entrants</a></li>
+                  <li><a href="<?php echo baseHref; ?>system/event_types.html">Event Types</a></li>
                   <li><a href="<?php echo baseHref; ?>system/orgs.html">Organizations</a></li>              
                   <li class="divider"></li>
                   <li><a href="<?php echo baseHref; ?>system/session.html">Change Organization</a></li>
