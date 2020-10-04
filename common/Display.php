@@ -92,7 +92,7 @@
                 </ul>
               </li>
 <?php
-        if ( !empty( $org ) ) {
+        if ( !empty( $org ) && ( $user[ 'user_type_id' ] >= 5 ) ) {
           $privs = json_decode( $org[ 'privileges' ], true );
 ?>
               <li class="divider-vertical"></li>
