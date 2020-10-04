@@ -39,6 +39,10 @@
           $event[ 'status' ] = "open";
         } else if ( $now < $event[ 'date_ts' ] ) {
           $event[ 'status' ] = "will open";
+          // Special hack here for board members and above: they get to register ahead of registration open
+          if ( ( $user[ 'user_type_id' ] >= 4 ) && ( $user[ 'organization_id' ] == $event[ 'organization_id' ] ) ) {
+            $event[ 'status' ] = "open";
+          }
         } else {
           $event[ 'status' ] = "unknown";
         }
