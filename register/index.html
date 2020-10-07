@@ -252,6 +252,13 @@
             <?php echo date( "l, F j, Y", $event[ 'registration_open_ts' ] ); ?>
             at
             <?php echo date( "g:i a", $event[ 'registration_open_ts' ] ); ?>.
+            <br/>
+            <!-- debug, remove -->
+            User ID: <?php echo $user[ 'user_type_id' ]?>
+            <br/>
+            User org: <?php echo $user[ 'organization_id' ]?>
+            <br/>
+            Event org: <?php echo $event[ 'organization_id' ]?>
           </div>
         </div>
       </div>
