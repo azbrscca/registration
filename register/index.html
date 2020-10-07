@@ -2,6 +2,19 @@
   require_once "../common/Common.php";
   require_once "../db/Query.php";
 
+  $user = array();
+  $org = array();
+  $registered = false;
+
+  if ( Session::checkLogin() ) {
+    $q = new Query( "entrants" );
+    $user = $q->selectById( $_SESSION[ 'user_id' ] );
+    if ( $user[ 'organization_id' ] != 0 ) {
+      $q = new Query( "organizations" );
+      $org = $q->selectById( $user[ 'organization_id' ] );
+    }
+  }
+
   $event = array();
   if ( !empty( $_SERVER[ 'REQUEST_URI' ] ) ) {
     $uri = $_SERVER[ 'REQUEST_URI' ];
@@ -141,19 +154,6 @@
     /* more error checking should happen here??? */
     $_SESSION[ 'registration_id' ] = $registration[ 'id' ];
     header( "Location: ".baseHref."events/registered.html" );
-  }
-
-  $user = array();
-  $org = array();
-  $registered = false;
-
-  if ( Session::checkLogin() ) {
-    $q = new Query( "entrants" );
-    $user = $q->selectById( $_SESSION[ 'user_id' ] );
-    if ( $user[ 'organization_id' ] != 0 ) {
-      $q = new Query( "organizations" );
-      $org = $q->selectById( $user[ 'organization_id' ] );
-    }
   }
 
   if ( !empty( $event ) && !empty( $user ) ) {
