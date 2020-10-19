@@ -1100,44 +1100,44 @@
                   .on( 'click', function() { $( "#cancel-div" ).slideDown() } )
                 );
 
+            } else {
+
+              if ( comp_full ) {
+                //Check 
+                $( "#register-btn" ).attr( 'disabled', "disabled" );
+                $( "#event-status" )
+                  .empty()
+                  .append( $( "<h3/>" ).html( "Registration for this event is full." ) );
+
+                $( "#event-status" ).slideDown();
               } else {
 
-                if ( comp_full ) {
-                  $( "#register-btn" ).attr( 'disabled', "disabled" );
-                  $( "#event-status" )
-                    .empty()
-                    .append( $( "<h3/>" ).html( "Registration for this event is full." ) );
-
-                  $( "#event-status" ).slideDown();
-                } else {
-
-                  $.getJSON( "<?php echo apiHref; ?>registrations/previous/",
+                $.getJSON( "<?php echo apiHref; ?>registrations/previous/",
                               { 'entrant_id' : $( "#entrant_id" ).val(),
                                 'organization_id' : <?php echo $event[ 'organization_id' ]; ?> },
                               function( json ) {
-                    if ( json ) {
-                      $.each( json, function( key, val ) {
-                        if ( $( "#registration_" + key ).length > 0 ) {
-                          $( "#registration_" + key ).val( $( "<div/>" ).html( val ).text() );
-                        }
-                      });
-                      car_id = json.car_id;
-                      $( "#car_id" ).val( car_id );
-                      $( "#car_id" ).trigger( 'change' );
-                      to_car_id = json.to_car_id;
-                      $( "#to_car_id" ).val( to_car_id );
-                      car_sync = ( car_id == to_car_id );
+                  if ( json ) {
+                    $.each( json, function( key, val ) {
+                      if ( $( "#registration_" + key ).length > 0 ) {
+                        $( "#registration_" + key ).val( $( "<div/>" ).html( val ).text() );
+                      }
+                    });
+                    car_id = json.car_id;
+                    $( "#car_id" ).val( car_id );
+                    $( "#car_id" ).trigger( 'change' );
+                    to_car_id = json.to_car_id;
+                    $( "#to_car_id" ).val( to_car_id );
+                    car_sync = ( car_id == to_car_id );
 
-                      $( "#help" ).empty();
-                      $( "#help" ).append(
-                        $( "<div/>", { 'class' : "alert" } ).html(
-                        "You <strong>are not</strong> registered for this event. The Event Registration Information " +
-                       "has been filled in based on the last time you registered online for an event " +
-                       "with <?php echo $event[ 'organization_name' ]; ?>."
+                    $( "#help" ).empty();
+                    $( "#help" ).append(
+                      $( "<div/>", { 'class' : "alert" } ).html(
+                      "You <strong>are not</strong> registered for this event. The Event Registration Information " +
+                      "has been filled in based on the last time you registered online for an event " +
+                      "with <?php echo $event[ 'organization_name' ]; ?>."
                       )
                     );
                     $( "#help" ).slideDown();
-
                   }
                 });
               }
