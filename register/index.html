@@ -171,10 +171,11 @@
         ->select();
     $carsJSON = json_encode( $cars );
 
-    $q = new Query( "registrations" );
-    $q->addWhere( 'entrant_id', $user[ 'id' ] )
-      ->addWhere( 'event_id', $event[ 'id' ] );
-    $registered = ( $q->count() == 1 );
+    //$q = new Query( "registrations" );
+    //$q->addWhere( 'entrant_id', $user[ 'id' ] )
+    //  ->addWhere( 'event_id', $event[ 'id' ] );
+    //$registered = ( $q->count() == 1 );
+    $registered = DatabaseHelper::isEntrantRegistered( $user[ 'id' ], $event[ 'id' ] );
     
     if ( $event[ 'waitlist_enabled' ] ) {
       
@@ -816,6 +817,8 @@
 
         var comp_full = <?php echo ( $event[ 'comp_full' ] ? 'true' : 'false' ); ?>;
         var waitlist_enabled = <?php echo ( event[ 'waitlist_enabled' ] ? 'true' : 'false' ); ?>
+        var registered = <?php echo ( $registered ? 'true' : 'false' ); ?>
+        var registeredOnWaitlist = <?php echo ( $registeredOnWaitlist ? 'true' : 'false' ); ?>
         var car_sync = true;
 
         $( "#codriver-help" ).popover({
