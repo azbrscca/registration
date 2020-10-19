@@ -1,10 +1,12 @@
 <?php
   require_once "../common/Common.php";
   require_once "../db/Query.php";
+  require_once "../common/DatabaseHelper.php";
 
   $user = array();
   $org = array();
   $registered = false;
+  $registeredOnWaitlist = false;
 
   if ( Session::checkLogin() ) {
     $q = new Query( "entrants" );
@@ -76,6 +78,9 @@
         $event[ 'to_full' ] =
           ( ( $event[ 'to_limit' ] > 0 ) &&
             ( $event[ 'to_count' ] >= $event[ 'to_limit' ] ) );
+        
+        //Waitlist logic specific for AZBR autocross
+        $event[ 'waitlist_enabled' ] = ( $event[ 'organization_id' ] == 2 );
       }
     }
   }
@@ -170,6 +175,10 @@
     $q->addWhere( 'entrant_id', $user[ 'id' ] )
       ->addWhere( 'event_id', $event[ 'id' ] );
     $registered = ( $q->count() == 1 );
+    
+    if ( $event[ 'waitlist_enabled' ] ) {
+      
+    }
   }
 
   Display::openBody();
@@ -274,7 +283,7 @@
               </div>
 <?php
     } else {
-      $showForm = !$event[ 'comp_full' ] || $registered;
+      $showForm = !$event[ 'comp_full' ] || $registered || $event[ 'waitlist_enabled' ];
 ?>
       <div class="row-fluid">
         <div class="span12">
@@ -806,6 +815,7 @@
 <?php if ( !empty( $event ) && ( $event[ 'status' ] == "open" ) && !empty( $user ) ) { ?>
 
         var comp_full = <?php echo ( $event[ 'comp_full' ] ? 'true' : 'false' ); ?>;
+        var waitlist_enabled = <?php echo ( event[ 'waitlist_enabled' ] ? 'true' : 'false' ); ?>
         var car_sync = true;
 
         $( "#codriver-help" ).popover({
