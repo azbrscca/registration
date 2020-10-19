@@ -171,10 +171,6 @@
         ->select();
     $carsJSON = json_encode( $cars );
 
-    //$q = new Query( "registrations" );
-    //$q->addWhere( 'entrant_id', $user[ 'id' ] )
-    //  ->addWhere( 'event_id', $event[ 'id' ] );
-    //$registered = ( $q->count() == 1 );
     $registered = DatabaseHelper::isEntrantRegistered( $user[ 'id' ], $event[ 'id' ] );
     
     if ( $event[ 'waitlist_enabled' ] ) {
@@ -1083,10 +1079,15 @@
                   )
 
               if ( comp_full ) {
-                help_div
-                  .append( $( "<p/>" )
-                    .html( "Registration for this event is full. You can still modify or cancel your entry online while registration is open." )
+                if ( registeredOnWaitlist ) {
+                  help_div.append( $( "<p/>" )
+                      .html( "Registration for this event is full. <b>Please note you are currently waitlisted.</b> You can still modify or cancel your entry online while registration is open." )
                   );
+                } else {
+                  help_div.append( $( "<p/>" )
+                      .html( "Registration for this event is full. You can still modify or cancel your entry online while registration is open." )
+                  );
+                }
               }
 
               $( "#help" ).empty();
@@ -1103,11 +1104,17 @@
             } else {
 
               if ( comp_full ) {
-                //Check 
-                $( "#register-btn" ).attr( 'disabled', "disabled" );
                 $( "#event-status" )
-                  .empty()
-                  .append( $( "<h3/>" ).html( "Registration for this event is full." ) );
+                  .empty();
+                  
+                if ( waitlist_enabled ) {
+                  $( "#event-status" )
+                    .append( $( "<h3/>" ).html( "Registration for this event is full. You may continue with the registration process in order to be placed on the waitlist." ) );
+                } else {
+                  $( "#register-btn" ).attr( 'disabled', "disabled" );
+                  $( "#event-status" )
+                    .append( $( "<h3/>" ).html( "Registration for this event is full." ) );
+                }
 
                 $( "#event-status" ).slideDown();
               } else {
