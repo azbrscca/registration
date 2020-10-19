@@ -174,7 +174,7 @@
     $registered = DatabaseHelper::isEntrantRegistered( $user[ 'id' ], $event[ 'id' ] );
     
     if ( $event[ 'waitlist_enabled' ] ) {
-      
+      //TODO: blarg
     }
   }
 
@@ -812,7 +812,7 @@
 <?php if ( !empty( $event ) && ( $event[ 'status' ] == "open" ) && !empty( $user ) ) { ?>
 
         var comp_full = <?php echo ( $event[ 'comp_full' ] ? 'true' : 'false' ); ?>;
-        var waitlist_enabled = <?php echo ( event[ 'waitlist_enabled' ] ? 'true' : 'false' ); ?>;
+        var waitlist_enabled = <?php echo ( $event[ 'waitlist_enabled' ] ? 'true' : 'false' ); ?>;
         var registered = <?php echo ( $registered ? 'true' : 'false' ); ?>;
         var registeredOnWaitlist = <?php echo ( $registeredOnWaitlist ? 'true' : 'false' ); ?>;
         var car_sync = true;
