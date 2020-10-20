@@ -23,6 +23,13 @@
       
       return 99;  //debug
     }
+    
+    public static function getAllEventEntrants( $event_id ) {
+      $q = new Query( "registrations" );
+      $q->addWhere( 'event_id', $event_id );
+      $event_registrations = $q->select();
+      return $event_registrations;
+    }
 
   } // class DatabaseHelper
 ?>

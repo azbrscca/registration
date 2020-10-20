@@ -8,6 +8,7 @@
   $registered = false;
   $registeredOnWaitlist = false;
   $regPosition = 27; //debug
+  $event_registrations = array();
 
   if ( Session::checkLogin() ) {
     $q = new Query( "entrants" );
@@ -177,6 +178,7 @@
     if ( $event[ 'waitlist_enabled' ] && $registered ) {
       $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
       $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
+      $event_registrations = DatabaseHelper::getAllEventEntrants( $event[ 'id' ] ); //debug
     } else {
       $regPosition = 42;  //debug
     }
@@ -821,6 +823,9 @@
         var regPosition = <?php echo ( $regPosition ); ?>;
         var registeredOnWaitlist = <?php echo ( $registeredOnWaitlist ? 'true' : 'false' ); ?>;
         var car_sync = true;
+        
+        //debug
+        var event_registrations = <?php echo json_encode($event_registrations) ?>;
 
         $( "#codriver-help" ).popover({
           'html' : "true",
