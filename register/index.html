@@ -1,10 +1,13 @@
 <?php
   require_once "../common/Common.php";
   require_once "../db/Query.php";
+  require_once "../common/DatabaseHelper.php";
 
   $user = array();
   $org = array();
   $registered = false;
+  $registeredOnWaitlist = false;
+  $regPosition = 0;
 
   if ( Session::checkLogin() ) {
     $q = new Query( "entrants" );
@@ -76,6 +79,9 @@
         $event[ 'to_full' ] =
           ( ( $event[ 'to_limit' ] > 0 ) &&
             ( $event[ 'to_count' ] >= $event[ 'to_limit' ] ) );
+        
+        //Waitlist logic specific for AZBR autocross
+        $event[ 'waitlist_enabled' ] = ( $event[ 'organization_id' ] == 2 );
       }
     }
   }
@@ -166,10 +172,12 @@
         ->select();
     $carsJSON = json_encode( $cars );
 
-    $q = new Query( "registrations" );
-    $q->addWhere( 'entrant_id', $user[ 'id' ] )
-      ->addWhere( 'event_id', $event[ 'id' ] );
-    $registered = ( $q->count() == 1 );
+    $registered = DatabaseHelper::isEntrantRegistered( $user[ 'id' ], $event[ 'id' ] );
+    
+    if ( $event[ 'waitlist_enabled' ] && $registered ) {
+      $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
+      $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
+    }
   }
 
   Display::openBody();
@@ -274,7 +282,7 @@
               </div>
 <?php
     } else {
-      $showForm = !$event[ 'comp_full' ] || $registered;
+      $showForm = !$event[ 'comp_full' ] || $registered || $event[ 'waitlist_enabled' ];
 ?>
       <div class="row-fluid">
         <div class="span12">
@@ -806,6 +814,9 @@
 <?php if ( !empty( $event ) && ( $event[ 'status' ] == "open" ) && !empty( $user ) ) { ?>
 
         var comp_full = <?php echo ( $event[ 'comp_full' ] ? 'true' : 'false' ); ?>;
+        var waitlist_enabled = <?php echo ( $event[ 'waitlist_enabled' ] ? 'true' : 'false' ); ?>;
+        var waitlistPosition = <?php echo ( $regPosition - $event[ 'comp_limit' ] ); ?>;
+        var registeredOnWaitlist = <?php echo ( $registeredOnWaitlist ? 'true' : 'false' ); ?>;
         var car_sync = true;
 
         $( "#codriver-help" ).popover({
@@ -1070,10 +1081,15 @@
                   )
 
               if ( comp_full ) {
-                help_div
-                  .append( $( "<p/>" )
-                    .html( "Registration for this event is full. You can still modify or cancel your entry online while registration is open." )
+                if ( registeredOnWaitlist ) {
+                  help_div.append( $( "<p/>" )
+                      .html( "Registration for this event is full. <b>Please note you are currently waitlisted: your waitlist position is " + waitlistPosition + ".</b> You can still modify or cancel your entry online while registration is open." )
                   );
+                } else {
+                  help_div.append( $( "<p/>" )
+                      .html( "Registration for this event is full. You can still modify or cancel your entry online while registration is open." )
+                  );
+                }
               }
 
               $( "#help" ).empty();
@@ -1087,44 +1103,51 @@
                   .on( 'click', function() { $( "#cancel-div" ).slideDown() } )
                 );
 
-              } else {
+            } else {
 
-                if ( comp_full ) {
+              if ( comp_full ) {
+                $( "#event-status" )
+                  .empty();
+                  
+                if ( waitlist_enabled ) {
+                  $( "#event-status" )
+                    .append( $( "<h3/>" ).html( "Registration for this event is full. You may continue with the registration process in order to be placed on the waitlist." ) );
+                } else {
                   $( "#register-btn" ).attr( 'disabled', "disabled" );
                   $( "#event-status" )
-                    .empty()
                     .append( $( "<h3/>" ).html( "Registration for this event is full." ) );
+                }
 
-                  $( "#event-status" ).slideDown();
-                } else {
+                $( "#event-status" ).slideDown();
+              }
 
-                  $.getJSON( "<?php echo apiHref; ?>registrations/previous/",
+              if ( ( !comp_full ) || waitlist_enabled ) {
+                $.getJSON( "<?php echo apiHref; ?>registrations/previous/",
                               { 'entrant_id' : $( "#entrant_id" ).val(),
                                 'organization_id' : <?php echo $event[ 'organization_id' ]; ?> },
                               function( json ) {
-                    if ( json ) {
-                      $.each( json, function( key, val ) {
-                        if ( $( "#registration_" + key ).length > 0 ) {
-                          $( "#registration_" + key ).val( $( "<div/>" ).html( val ).text() );
-                        }
-                      });
-                      car_id = json.car_id;
-                      $( "#car_id" ).val( car_id );
-                      $( "#car_id" ).trigger( 'change' );
-                      to_car_id = json.to_car_id;
-                      $( "#to_car_id" ).val( to_car_id );
-                      car_sync = ( car_id == to_car_id );
+                  if ( json ) {
+                    $.each( json, function( key, val ) {
+                      if ( $( "#registration_" + key ).length > 0 ) {
+                        $( "#registration_" + key ).val( $( "<div/>" ).html( val ).text() );
+                      }
+                    });
+                    car_id = json.car_id;
+                    $( "#car_id" ).val( car_id );
+                    $( "#car_id" ).trigger( 'change' );
+                    to_car_id = json.to_car_id;
+                    $( "#to_car_id" ).val( to_car_id );
+                    car_sync = ( car_id == to_car_id );
 
-                      $( "#help" ).empty();
-                      $( "#help" ).append(
-                        $( "<div/>", { 'class' : "alert" } ).html(
-                        "You <strong>are not</strong> registered for this event. The Event Registration Information " +
-                       "has been filled in based on the last time you registered online for an event " +
-                       "with <?php echo $event[ 'organization_name' ]; ?>."
+                    $( "#help" ).empty();
+                    $( "#help" ).append(
+                      $( "<div/>", { 'class' : "alert" } ).html(
+                      "You <strong>are not</strong> registered for this event. The Event Registration Information " +
+                      "has been filled in based on the last time you registered online for an event " +
+                      "with <?php echo $event[ 'organization_name' ]; ?>."
                       )
                     );
                     $( "#help" ).slideDown();
-
                   }
                 });
               }

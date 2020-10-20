@@ -1,6 +1,7 @@
 <?php
   require_once "../common/Common.php";
   require_once "../db/Query.php";
+  require_once "../common/DatabaseHelper.php";
   
   $user = array();
   $org = array();
@@ -15,6 +16,9 @@
   Display::openBody();
   Display::navBar( $user, $org );
   Display::openContainer();
+  
+  $registeredOnWaitlist = false;
+  $waitlistPosition = 0;
   
   $q = new Query( "events" );
   $event = $q->joinOn( "site" )
@@ -40,7 +44,7 @@
 
   if ( !empty( $event[ 'entry_fees' ] ) ) {
     $entry_fees = json_decode( $event[ 'entry_fees' ], true );
-  } else if ( !empty( $org[ 'entry_fees' ] ) ) {
+  } else if ( !empty( $event[ 'organization_entry_fees' ] ) ) {
     /*
      *  make sure this stays as $event[ 'organization_entry_fees' ]
      *  and not $org[ 'entry_fees' ], as the event organization may not be
@@ -49,7 +53,13 @@
     $entry_fees = json_decode( $event[ 'organization_entry_fees' ], true );
   }
 ?>
-<?php if ( !empty( $event ) ) { ?>
+<?php if ( !empty( $event ) ) {
+  $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
+  $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
+  if ( $registeredOnWaitlist ) {
+    $waitlistPosition = $regPosition - $event[ 'comp_limit' ];
+  }
+?>
       <div class="page-header">
         <h3>Event Registration
           <small>
@@ -65,9 +75,15 @@
 
       <div class="row-fluid"> 
         <div class="span12">
+<?php if ( $registeredOnWaitlist ) { ?>
+          <h3 class="alert">
+            Thank you for registering, <?php echo $registration[ 'entrant_name_first' ]; ?>! You have been waitlisted. Your waitlist position is <?php echo $waitlistPosition ?>.
+          </h3>
+<?php } else { ?>
           <h3 class="alert alert-success">
             Thank you for registering, <?php echo $registration[ 'entrant_name_first' ]; ?>!
           </h3>
+<?php } ?>
           <p>
             Online registration for this event is open until <?php echo date( "l, F j", $event[ 'registration_close_ts' ] ); ?> at <?php echo date( "g:i a", $event[ 'registration_close_ts' ] ); ?>. If you need to update or cancel your entry before then, you can always return to the <a href="<?php echo baseHref; ?>register/<?php echo $event[ 'id' ]; ?>">event registration page</a>.
           </p>
@@ -94,7 +110,7 @@
             </div>
             -->
 
-<?php if ( isset( $entry_fees ) ) { ?>
+<?php if ( isset( $entry_fees ) && ( !$registeredOnWaitlist ) ) { ?>
             <div class="span4">
               <h4>Entry Fees</h4>
               <div class="well well-small">
@@ -216,14 +232,14 @@
             </div>
 <?php } ?>
 
-<?php if ( !empty( $event[ 'payment_info' ] ) ) { ?>
+<?php if ( !empty( $event[ 'payment_info' ] ) && ( !$registeredOnWaitlist ) ) { ?>
             <div class="span4">
               <h4>Payment Information</h4>
               <div class="well well-small">
 		            <p id="payment_info-p"><?php echo htmlspecialchars_decode( preg_replace( "/\\\\/", "", $event[ 'payment_info' ] ) ); ?></p>
               </div>
             </div>
-<?php } else if ( !empty( $event[ 'organization_payment_info' ] ) ) { ?>
+<?php } else if ( !empty( $event[ 'organization_payment_info' ] ) && ( !$registeredOnWaitlist ) ) { ?>
             <div class="span4">
               <h4>Payment Information</h4>
               <div class="well well-small">
