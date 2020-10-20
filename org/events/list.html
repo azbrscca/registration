@@ -207,6 +207,7 @@
                 row.append( $( "<td/>" ).append( item.car_year + ' ' + item.car_make + '/' + item.car_model + ' (' + item.car_color + ')' ) )
                    .append( $( "<td/>", { 'class' : "span1" } ).append( categoryString ) )
                    .append( $( "<td/>" ).append( "Registered On: " + item.date_created ) )
+                   .append( $( "<td/>" ).append( "Previous events: " + ( item.num_previous_events - 1 ) ) )
                    .append( $( "<td/>", { 'class' : "span6" } )
                       .append( "Comments: " )
                       .append( item.comments ) );

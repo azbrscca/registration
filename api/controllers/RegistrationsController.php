@@ -80,6 +80,10 @@
             $registrations[ $index ][ 'work_pos_'.$i."_name" ] = "Any";
           }
         }
+        
+        $q = new Query( "registrations" );
+        $q->addWhere( "entrant_id", $registrations[ $index ][ 'entrant_id' ] );
+        $registrations[ $index ][ 'num_previous_events' ] = $q->count();
       }
 
       if ( $sort ) {
