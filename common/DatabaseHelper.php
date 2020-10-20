@@ -13,6 +13,7 @@
     public static function getEntrantRegPosition( $entrant_id, $event_id ) {
       $q = new Query( "registrations" );
       $q->addWhere( 'event_id', $event_id );
+      $q->addOrder( 'id' );
       $event_registrations = $q->select();
       
       for ( $i = 0; $i < count( $event_registrations ); $i++ ) {
@@ -24,6 +25,7 @@
       return 99;  //debug
     }
     
+    //debug
     public static function getAllEventEntrants( $event_id ) {
       $q = new Query( "registrations" );
       $q->addWhere( 'event_id', $event_id );
