@@ -1119,8 +1119,9 @@
                 }
 
                 $( "#event-status" ).slideDown();
-              } else {
+              }
 
+              if ( ( !comp_full ) || waitlist_enabled ) {
                 $.getJSON( "<?php echo apiHref; ?>registrations/previous/",
                               { 'entrant_id' : $( "#entrant_id" ).val(),
                                 'organization_id' : <?php echo $event[ 'organization_id' ]; ?> },
