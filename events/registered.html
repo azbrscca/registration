@@ -16,6 +16,9 @@
   Display::navBar( $user, $org );
   Display::openContainer();
   
+  $registeredOnWaitlist = false;
+  $waitlistPosition = 0;
+  
   $q = new Query( "events" );
   $event = $q->joinOn( "site" )
              ->joinOn( "organization" )
@@ -49,7 +52,13 @@
     $entry_fees = json_decode( $event[ 'organization_entry_fees' ], true );
   }
 ?>
-<?php if ( !empty( $event ) ) { ?>
+<?php if ( !empty( $event ) ) { 
+  $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
+  $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
+  if ( $registeredOnWaitlist ) {
+    $waitlistPosition = $regPosition - $event[ 'comp_limit' ];
+  }
+?>
       <div class="page-header">
         <h3>Event Registration
           <small>
@@ -65,9 +74,15 @@
 
       <div class="row-fluid"> 
         <div class="span12">
+<?php if ( $registeredOnWaitlist ) { ?>
+          <h3 class="alert">
+            Thank you for registering, <?php echo $registration[ 'entrant_name_first' ]; ?>! You have been waitlisted. You waitlist position is <?php echo $waitlistPosition ?>.
+          </h3>
+<?php } else { ?>
           <h3 class="alert alert-success">
             Thank you for registering, <?php echo $registration[ 'entrant_name_first' ]; ?>!
           </h3>
+<?php } ?>
           <p>
             Online registration for this event is open until <?php echo date( "l, F j", $event[ 'registration_close_ts' ] ); ?> at <?php echo date( "g:i a", $event[ 'registration_close_ts' ] ); ?>. If you need to update or cancel your entry before then, you can always return to the <a href="<?php echo baseHref; ?>register/<?php echo $event[ 'id' ]; ?>">event registration page</a>.
           </p>
