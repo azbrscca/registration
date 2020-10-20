@@ -21,7 +21,7 @@
         }
       }
       
-      return 0;
+      return 99;  //debug
     }
 
   } // class DatabaseHelper

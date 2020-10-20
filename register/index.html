@@ -7,6 +7,7 @@
   $org = array();
   $registered = false;
   $registeredOnWaitlist = false;
+  $regPosition = 0;
 
   if ( Session::checkLogin() ) {
     $q = new Query( "entrants" );
@@ -172,10 +173,12 @@
     $carsJSON = json_encode( $cars );
 
     $registered = DatabaseHelper::isEntrantRegistered( $user[ 'id' ], $event[ 'id' ] );
-    $regPosition = 0;
+    
     if ( $event[ 'waitlist_enabled' ] && $registered ) {
       $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
       $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
+    } else {
+      $regPosition = 42;  //debug
     }
   }
 
