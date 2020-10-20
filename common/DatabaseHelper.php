@@ -15,12 +15,10 @@
       $q->addWhere( 'event_id', $event_id );
       $event_registrations = $q->select();
       
-      $idx = 1;
-      foreach ( $event_registrations as $row ) {
-        if ( $row[ 'entrant_id' ] == $entrant_id ) {
-          return $idx;
+      for ( $i = 0; $i < count( $event_registrations ); $i++ ) {
+        if ( $event_registrations[ $i ][ 'entrant_id' ] == $entrant_id ) {
+          return $i;
         }
-        $idx += 1;
       }
       
       return 0;
