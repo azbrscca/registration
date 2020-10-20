@@ -7,8 +7,7 @@
   $org = array();
   $registered = false;
   $registeredOnWaitlist = false;
-  $regPosition = 27; //debug
-  $event_registrations = array();
+  $regPosition = 0;
 
   if ( Session::checkLogin() ) {
     $q = new Query( "entrants" );
@@ -178,9 +177,6 @@
     if ( $event[ 'waitlist_enabled' ] && $registered ) {
       $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
       $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
-      $event_registrations = DatabaseHelper::getAllEventEntrants( $event[ 'id' ] ); //debug
-    } else {
-      $regPosition = 42;  //debug
     }
   }
 
@@ -819,13 +815,9 @@
 
         var comp_full = <?php echo ( $event[ 'comp_full' ] ? 'true' : 'false' ); ?>;
         var waitlist_enabled = <?php echo ( $event[ 'waitlist_enabled' ] ? 'true' : 'false' ); ?>;
-        var registered = <?php echo ( $registered ? 'true' : 'false' ); ?>;
-        var regPosition = <?php echo ( $regPosition ); ?>;
+        var waitlistPosition = <?php echo ( $regPosition - $event[ 'comp_limit' ] ); ?>;
         var registeredOnWaitlist = <?php echo ( $registeredOnWaitlist ? 'true' : 'false' ); ?>;
         var car_sync = true;
-        
-        //debug
-        var event_registrations = <?php echo json_encode($event_registrations) ?>;
 
         $( "#codriver-help" ).popover({
           'html' : "true",
@@ -1091,7 +1083,7 @@
               if ( comp_full ) {
                 if ( registeredOnWaitlist ) {
                   help_div.append( $( "<p/>" )
-                      .html( "Registration for this event is full. <b>Please note you are currently waitlisted: your entry number is " + regPosition + ".</b> You can still modify or cancel your entry online while registration is open." )
+                      .html( "Registration for this event is full. <b>Please note you are currently waitlisted: your waitlist position is " + waitlistPosition + ".</b> You can still modify or cancel your entry online while registration is open." )
                   );
                 } else {
                   help_div.append( $( "<p/>" )
