@@ -17,7 +17,7 @@
       
       for ( $i = 0; $i < count( $event_registrations ); $i++ ) {
         if ( $event_registrations[ $i ][ 'entrant_id' ] == $entrant_id ) {
-          return $i;
+          return $i + 1;
         }
       }
       
