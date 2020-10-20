@@ -53,7 +53,7 @@
     $entry_fees = json_decode( $event[ 'organization_entry_fees' ], true );
   }
 ?>
-<?php if ( !empty( $event ) ) { 
+<?php if ( !empty( $event ) ) {
   $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
   $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
   if ( $registeredOnWaitlist ) {
@@ -77,7 +77,7 @@
         <div class="span12">
 <?php if ( $registeredOnWaitlist ) { ?>
           <h3 class="alert">
-            Thank you for registering, <?php echo $registration[ 'entrant_name_first' ]; ?>! You have been waitlisted. You waitlist position is <?php echo $waitlistPosition ?>.
+            Thank you for registering, <?php echo $registration[ 'entrant_name_first' ]; ?>! You have been waitlisted. Your waitlist position is <?php echo $waitlistPosition ?>.
           </h3>
 <?php } else { ?>
           <h3 class="alert alert-success">
@@ -110,7 +110,7 @@
             </div>
             -->
 
-<?php if ( isset( $entry_fees ) ) { ?>
+<?php if ( isset( $entry_fees ) && ( !$registeredOnWaitlist ) ) { ?>
             <div class="span4">
               <h4>Entry Fees</h4>
               <div class="well well-small">
@@ -232,14 +232,14 @@
             </div>
 <?php } ?>
 
-<?php if ( !empty( $event[ 'payment_info' ] ) ) { ?>
+<?php if ( !empty( $event[ 'payment_info' ] ) && ( !$registeredOnWaitlist ) ) { ?>
             <div class="span4">
               <h4>Payment Information</h4>
               <div class="well well-small">
 		            <p id="payment_info-p"><?php echo htmlspecialchars_decode( preg_replace( "/\\\\/", "", $event[ 'payment_info' ] ) ); ?></p>
               </div>
             </div>
-<?php } else if ( !empty( $event[ 'organization_payment_info' ] ) ) { ?>
+<?php } else if ( !empty( $event[ 'organization_payment_info' ] ) && ( !$registeredOnWaitlist ) ) { ?>
             <div class="span4">
               <h4>Payment Information</h4>
               <div class="well well-small">
