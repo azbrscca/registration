@@ -1,7 +1,7 @@
 <?php
   function scoreboard_spreadsheet( $event, &$excelSheet ) {
 
-    $excelSheet->getColumnDimension( 'A' )->setWidth( 23 );
+    $excelSheet->getColumnDimension( 'A' )->setWidth( 22.22 );
 
     $excelSheet->setTitle( "Scoreboard" );
 
@@ -40,13 +40,13 @@
       $form_ndx = 0;
       for( $position = 1; $position <= $positions_to_use; $position++ ) {
 
-        $excelSheet->getRowDimension( $row )->setRowHeight( 24 );
-        $excelSheet->getRowDimension( $row+1 )->setRowHeight( 24 );
-        $excelSheet->getRowDimension( $row+2 )->setRowHeight( 24 );
+        $excelSheet->getRowDimension( $row )->setRowHeight( 16.5 );
+        $excelSheet->getRowDimension( $row+1 )->setRowHeight( 16.5 );
+        $excelSheet->getRowDimension( $row+2 )->setRowHeight( 16.5 );
 if ( $event[ 'organization_id' ] == 3 ) {
         $excelSheet->getRowDimension( $row+3 )->setRowHeight( 2 );
 } else {
-        $excelSheet->getRowDimension( $row+3 )->setRowHeight( 18 );
+        $excelSheet->getRowDimension( $row+3 )->setRowHeight( 29 );
 }
         if ( array_key_exists( $form_ndx, $forms ) &&
              ( $forms[ $form_ndx ][ 'position' ] == $position ) ) {
@@ -91,12 +91,12 @@ if ( $event[ 'organization_id' ] == 3 ) {
         if ( $position % 7 == 0 ) {
           $col++;
           $row = 1;
-          $excelSheet->getColumnDimension( getColIndex( $col ) )->setWidth( 23 );
+          $excelSheet->getColumnDimension( getColIndex( $col ) )->setWidth( 22.22 );
         }
       }	  
       $col++;
       $row = 1;
-      $excelSheet->getColumnDimension( getColIndex( $col ) )->setWidth( 23 );
+      $excelSheet->getColumnDimension( getColIndex( $col ) )->setWidth( 22.22 );
     }
 
     $excelSheet->getStyle( 'A1:BZ31' )->getAlignment()->setShrinkToFit( true );
