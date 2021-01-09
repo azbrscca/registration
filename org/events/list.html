@@ -9,10 +9,12 @@
     $q = new Query( "entrants" );
     $user = $q->selectById( $_SESSION[ 'user_id' ] );
     $q = new Query( "organizations" );
-    $org = $q->selectById( $user[ 'organization_id' ] );
+    $userOrgId = $user[ 'organization_id' ];
+    $org = $q->selectById( $userOrgId );
+    
     
     $q = new Query( 'comp_categories' );
-    $q->addWhere( 'organization_id', 2 );
+    $q->addWhere( 'organization_id', $userOrgId );
     $compCategories = $q->select();
   } else {
     header( "Location: ".baseHref );    
