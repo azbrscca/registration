@@ -55,7 +55,8 @@
 ?>
 <?php if ( !empty( $event ) ) {
   $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
-  $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
+  $waitlist_enabled = ( $event[ 'organization_id' ] == 2 );
+  $registeredOnWaitlist = ( ( $regPosition > $event[ 'comp_limit' ] ) && $waitlist_enabled );
   if ( $registeredOnWaitlist ) {
     $waitlistPosition = $regPosition - $event[ 'comp_limit' ];
   }
