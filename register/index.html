@@ -8,6 +8,8 @@
   $registered = false;
   $registeredOnWaitlist = false;
   $regPosition = 0;
+  $regPositionIncludingTimeOnly = 0;
+  $waitlistPosition = 0;
 
   if ( Session::checkLogin() ) {
     $q = new Query( "entrants" );
@@ -176,7 +178,27 @@
     
     if ( $event[ 'waitlist_enabled' ] && $registered ) {
       $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
-      $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
+      $regPositionIncludingTimeOnly = DatabaseHelper::getEntrantRegPositionIncludingTimeOnly( $user[ 'id' ], $event[ 'id' ] );
+      
+      if ( $event[ 'comp_limit' ] > 0 ) {
+        $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
+      }
+      
+      if ( $event[ 'registration_limit' ] > 0 ) {
+        $registeredOnWaitlist = ( $regPositionIncludingTimeOnly > $event[ 'registration_limit' ] ) || $registeredOnWaitlist;
+      }
+      
+      // TODO: add handling for TO limits somehow
+      
+      if ( $registeredOnWaitlist ) {
+        if ( $event[ 'comp_limit' ] > 0 ) {
+          // TODO: this doesn't cover complex use cases (such as comp_limit and registration_limit both being nonzero) but it'll work for now
+          $waitlistPosition = $regPosition - $event[ 'comp_limit' ];
+        }
+        if ( $event[ 'registration_limit' ] > 0 ) {
+          $waitlistPosition = $regPositionIncludingTimeOnly - $event[ 'registration_limit' ];
+        }
+      }
     }
   }
 
@@ -815,7 +837,7 @@
 
         var comp_full = <?php echo ( $event[ 'comp_full' ] ? 'true' : 'false' ); ?>;
         var waitlist_enabled = <?php echo ( $event[ 'waitlist_enabled' ] ? 'true' : 'false' ); ?>;
-        var waitlistPosition = <?php echo ( $regPosition - $event[ 'comp_limit' ] ); ?>;
+        var waitlistPosition = <?php echo ( $waitlistPosition ); ?>;
         var registeredOnWaitlist = <?php echo ( $registeredOnWaitlist ? 'true' : 'false' ); ?>;
         var car_sync = true;
 

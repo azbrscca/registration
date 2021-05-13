@@ -24,6 +24,27 @@
       
       return 0;
     }
+    
+    public static function getEntrantRegPositionIncludingTimeOnly( $entrant_id, $event_id ) {
+      $q = new Query( "registrations" );
+      $q->addWhere( 'event_id', $event_id );
+      $q->addOrder( 'id' );
+      $event_registrations = $q->select();
+      $regPosition = 0;
+      
+      for ( $i = 0; $i < count( $event_registrations ); $i++ ) {
+        if ( $event_registrations[ $i ][ 'entrant_id' ] == $entrant_id ) {
+          return ( $regPosition + 1 );
+        }
+        
+        $regPosition = $regPosition + 1;
+        if ( $event_registrations[ $i ][ 'time_only_reg' ] == 1 ) {
+          $regPosition = $regPosition + 1;
+        }
+      }
+      
+      return 0;
+    }
 
   } // class DatabaseHelper
 ?>

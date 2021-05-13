@@ -55,10 +55,24 @@
 ?>
 <?php if ( !empty( $event ) ) {
   $regPosition = DatabaseHelper::getEntrantRegPosition( $user[ 'id' ], $event[ 'id' ] );
-  $waitlist_enabled = ( $event[ 'organization_id' ] == 2 );
-  $registeredOnWaitlist = ( ( $regPosition > $event[ 'comp_limit' ] ) && $waitlist_enabled );
-  if ( $registeredOnWaitlist ) {
-    $waitlistPosition = $regPosition - $event[ 'comp_limit' ];
+  $regPositionIncludingTimeOnly = DatabaseHelper::getEntrantRegPositionIncludingTimeOnly( $user[ 'id' ], $event[ 'id' ] );
+  $waitlist_enabled = ( ( $event[ 'organization_id' ] == 2 ) && ( ( $event[ 'comp_limit' ] > 0 ) || ( $event[ 'registration_limit' ] > 0 ) ) );
+  
+  if ( $waitlist_enabled ) {
+    if ( $event[ 'comp_limit' ] > 0 ) {
+      $registeredOnWaitlist = ( $regPosition > $event[ 'comp_limit' ] );
+    }
+    if ( $event[ 'registration_limit' ] > 0 ) {
+      $registeredOnWaitlist = ( $regPositionIncludingTimeOnly > $event[ 'registration_limit' ] ) || $registeredOnWaitlist;
+    }
+    if ( $registeredOnWaitlist ) {
+      if ( $event[ 'comp_limit' ] > 0 ) {
+        $waitlistPosition = $regPosition - $event[ 'comp_limit' ];
+      }
+      if ( $event[ 'registration_limit' ] > 0 ) {
+        $waitlistPosition = $regPositionIncludingTimeOnly - $event[ 'registration_limit' ];
+      }
+    }
   }
 ?>
       <div class="page-header">
