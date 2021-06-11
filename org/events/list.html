@@ -219,7 +219,7 @@
               
               case 'weekend_members':
                 if ( item.entrant_scca_status == 0 ) {
-                  row.append( $( "<td/>", { 'class' : "span1" } ).append( "0" ) ) //NB: left blank for membership number column
+                  row.append( $( "<td/>", { 'class' : "span1" } ).append( item.entrant_scca_number ) ) 
                     .append( $( "<td/>" ).append( item.entrant_name_first ) )
                     .append( $( "<td/>" ).append( " " ) ) //TODO: middle name support
                     .append( $( "<td/>" ).append( item.entrant_name_last ) )
