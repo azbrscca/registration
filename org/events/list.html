@@ -218,9 +218,8 @@
               break;
               
               case 'weekend_members':
-                if ( item.entrant_scca_status == 0 ) 
-                  row.append( $( "<td/>", { 'class' : "span1" } ).append( index+1 ) )
-                    .append( $( "<td/>" ).append( " " ) ) //NB: left blank for membership number column
+                if ( item.entrant_scca_status == 0 ) {
+                  row.append( $( "<td/>", { 'class' : "span1" } ).append( " " ) ) //NB: left blank for membership number column
                     .append( $( "<td/>" ).append( item.entrant_name_first ) )
                     .append( $( "<td/>" ).append( " " ) ) //TODO: middle name support
                     .append( $( "<td/>" ).append( item.entrant_name_last ) )
@@ -250,8 +249,9 @@
                     .append( $( "<td/>" ).append( " " ) ) //TODO: event key support
                     .append( $( "<td/>" ).append( eventJSON.date ) )
                     .append( $( "<td/>" ).append( "0" ) ); //TODO: charge region support
-                  
-                  break;
+                }
+                
+                break;
               
               case 'names':
               default:
