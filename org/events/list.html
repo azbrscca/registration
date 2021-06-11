@@ -51,6 +51,7 @@
                 <option value="names">Names Only</option>
                 <option value="email">Email List</option>
                 <option value="details">Detailed List</option>
+                <option value="weekend_members">Weekend Members</option>
 <?php if ( $privs[ 'configuration' ] == "true" ) { ?>
                 <option value="worker">Work Position Preferences</option>
 <?php } ?>
@@ -215,6 +216,42 @@
                       .append( item.comments ) );
 
               break;
+              
+              case 'weekend_members':
+                if ( item.entrant_scca_status == 0 ) 
+                  row.append( $( "<td/>", { 'class' : "span1" } ).append( index+1 ) )
+                    .append( $( "<td/>" ).append( " " ) ) //NB: left blank for membership number column
+                    .append( $( "<td/>" ).append( item.entrant_name_first ) )
+                    .append( $( "<td/>" ).append( " " ) ) //TODO: middle name support
+                    .append( $( "<td/>" ).append( item.entrant_name_last ) )
+                    .append( $( "<td/>" ).append( item.entrant_dob ) )
+                    .append( $( "<td/>" ).append( item.entrant_address_street ) )
+                    .append( $( "<td/>" ).append( " " ) ) //TODO: address line 2 support
+                    .append( $( "<td/>" ).append( " " ) ) //TODO: address line 3 support
+                    .append( $( "<td/>" ).append( item.entrant_address_city ) )
+                    .append( $( "<td/>" ).append( item.entrant_address_state ) )
+                    .append( $( "<td/>" ).append( item.entrant_address_zip ) )
+                    .append( $( "<td/>" ).append( "US" ) ) //TODO: international support
+                    .append( $( "<td/>" ).append( item.entrant_phone_home ) )
+                    .append( $( "<td/>" ).append( item.entrant_email ) )
+                    .append( $( "<td/>" ).append( "88" ) ); //NB: AZBR region
+                  switch ( eventJSON.event_type_id ) {
+                    case 1:
+                      row.append( $( "<td/>" ).append( "Solo" ) );
+                      break;
+                    case 2:
+                      row.append( $( "<td/>" ).append( "Rallycross" ) );
+                      break;
+                    default:
+                      row.append( $( "<td/>" ).append( "Unknown" ) );
+                      break;
+                  }
+                  row.append( $( "<td/>" ).append( " " ) ) //TODO: region token support
+                    .append( $( "<td/>" ).append( " " ) ) //TODO: event key support
+                    .append( $( "<td/>" ).append( eventJSON.date ) )
+                    .append( $( "<td/>" ).append( "0" ) ); //TODO: charge region support
+                  
+                  break;
               
               case 'names':
               default:
