@@ -27,6 +27,7 @@
         Your Entry Fee: <i class="icon-usd"></i> <?php echo number_format( $totalRemainingEntryFee, 2 ); ?>
       </strong>
       <?php
+      if( $registeredForBoth ) {
         if ( $registration[ 'entrant_scca_status' ] == 1  ) {
           if( $totalRemainingEntryFee == 50 ) { ?>
             50!

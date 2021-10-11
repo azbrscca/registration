@@ -52,7 +52,6 @@
       $registration = $q->addWhere( 'event_id', $event_id )
                         ->addWhere( 'entrant_id', $entrant_id )
                         ->selectOne();
-      error_log( print_r( $registration, true ) );
       return $registration[ 'entry_fee' ];
     }
 
