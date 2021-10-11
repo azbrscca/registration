@@ -19,8 +19,12 @@
       }
       
       if( $registeredForBoth ) {
-        //We need to calculate the Two Days of Awesome entry fee.
-        $totalRemainingEntryFee = -10;  //-10 represents the $10 discount
+        //We need to calculate the Two Days of Awesome entry fee. The discount is $10. However, weekend members get a break on the $10 weekend member fee, so their discount is $20
+        if ( $registration[ 'entrant_scca_status' ] == 1  ) {
+          $totalRemainingEntryFee = -10;
+        } else {
+          $totalRemainingEntryFee = -20;
+        }
         $totalRemainingEntryFee = $totalRemainingEntryFee + DatabaseHelper::getEntrantEntryFee($entrant_id, $event_id_2da1) + DatabaseHelper::getEntrantEntryFee($entrant_id, $event_id_2da2);
       }
       ?>
