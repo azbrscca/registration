@@ -7,15 +7,42 @@
     public static function displayPaypalButton( $event, $registration ) {
       $event_id = $event[ 'id' ];
       $entrant_id = $registration[ 'entrant_id' ];
+      $totalRemainingEntryFee = $registration[ 'entry_fee' ];
+      $event_id_2da1 = 460;
+      $event_id_2da2 = 461;
       
       //2021 two days of awesome check
       $registeredForBoth = false;
-      // if( ($event_id == 460) || ($event_id == 461) ) {
-        // $registeredForBoth = DatabaseHelper::isEntrantRegistered($entrant_id, 460) && DatabaseHelper::isEntrantRegistered($entrant_id, 461);
-      // }
+      if( ($event_id == $event_id_2da1) || ($event_id == $event_id_2da2) ) {
+        $registeredForBoth = DatabaseHelper::isEntrantRegistered($entrant_id, $event_id_2da1) && DatabaseHelper::isEntrantRegistered($entrant_id, $event_id_2da2);
+      }
       
       if( $registeredForBoth ) {
+        //We need to calculate the Two Days of Awesome entry fee.
+        $totalRemainingEntryFee = -10;  //-10 represents the $10 discount
+        $totalRemainingEntryFee = $totalRemainingEntryFee + DatabaseHelper::getEntrantEntryFee($entrant_id, $event_id_2da1) + DatabaseHelper::getEntrantEntryFee($entrant_id, $event_id_2da2);
         
+        if ( $registration[ 'entrant_scca_status' ] == 1  ) {
+          if( $totalRemainingEntryFee == 50 ) { ?>
+            50!
+          <?php } else if ( $totalRemainingEntryFee == 60 ) { ?>
+            60!
+          <?php } else if ( $totalRemainingEntryFee == 70 ) { ?>
+            70!
+          <?php } else { ?>
+            Please send a PayPal payment to payments@azbrscca.org to complete payment
+          <?php } ?>
+        <?php } else {
+          if( $totalRemainingEntryFee == 60 ) { ?>
+            60non!
+          <?php } else if ( $totalRemainingEntryFee == 70 ) { ?>
+            70non!
+          <?php } else if ( $totalRemainingEntryFee == 80 ) { ?>
+            80non!
+          <?php } else { ?>
+            Please send a PayPal payment to payments@azbrscca.org to complete payment
+          <?php } ?>
+        <?php }
       } else {
         if ( $registration[ 'entrant_scca_status' ] == 1  ) {
           if( $registration[ 'entry_fee' ] == 30 ) { ?>

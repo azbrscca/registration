@@ -45,6 +45,14 @@
       
       return 0;
     }
+    
+    public static function getEntrantEntryFee( $entrant_id, $event_id ) {
+      $q = new Query( "registrations" );  
+      $q->addWhere( 'event_id', $event_id );
+      $q->addWhere( 'entrant_id', $entrant_id );
+      $registration = $q->select();
+      return $registration[ 'entry_fee' ];
+    }
 
   } // class DatabaseHelper
 ?>
