@@ -47,10 +47,12 @@
     }
     
     public static function getEntrantEntryFee( $entrant_id, $event_id ) {
+      $registration = array();
       $q = new Query( "registrations" );  
-      $q->addWhere( 'event_id', $event_id );
-      $q->addWhere( 'entrant_id', $entrant_id );
-      $registration = $q->select();
+      $registration = $q->addWhere( 'event_id', $event_id )
+                        ->addWhere( 'entrant_id', $entrant_id )
+                        ->select();
+      error_log( print_r( $registration, true ) );
       return $registration[ 'entry_fee' ];
     }
 
