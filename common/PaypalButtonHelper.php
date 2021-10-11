@@ -8,8 +8,8 @@
       $event_id = $event[ 'id' ];
       $entrant_id = $registration[ 'entrant_id' ];
       $totalRemainingEntryFee = $registration[ 'entry_fee' ];
-      $event_id_2da1 = 460;
-      $event_id_2da2 = 461;
+      $event_id_2da1 = 484;
+      $event_id_2da2 = 485;
       $buttonDelivered = false;
       
       //2021 two days of awesome check
