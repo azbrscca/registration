@@ -162,7 +162,7 @@
           
         <?php } else { ?>
           Please send a PayPal payment to payments@azbrscca.org to complete payment
-        <?php } ?>
+        <?php }
       }
     }
 
