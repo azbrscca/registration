@@ -21,7 +21,12 @@
         //We need to calculate the Two Days of Awesome entry fee.
         $totalRemainingEntryFee = -10;  //-10 represents the $10 discount
         $totalRemainingEntryFee = $totalRemainingEntryFee + DatabaseHelper::getEntrantEntryFee($entrant_id, $event_id_2da1) + DatabaseHelper::getEntrantEntryFee($entrant_id, $event_id_2da2);
-        
+      }
+      ?>
+      <strong>
+        Your Entry Fee: <i class="icon-usd"></i> <?php echo number_format( $totalRemainingEntryFee, 2 ); ?>
+      </strong>
+      <?php
         if ( $registration[ 'entrant_scca_status' ] == 1  ) {
           if( $totalRemainingEntryFee == 50 ) { ?>
             50!
