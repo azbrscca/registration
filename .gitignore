@@ -3,3 +3,4 @@
 
 common/Common.php*
 db/ConnectionFactory.php*
+*php.ini
