@@ -181,7 +181,7 @@
                       Your Entry Fee: <i class="icon-usd"></i> <?php echo number_format( $registration[ 'entry_fee' ], 2 ); ?>
                     </strong>
                     <?php if( $orgIsAzbr ) {
-                      PaypalButtonHelper::displayPaypalButton();
+                      PaypalButtonHelper::displayPaypalButton( $event, $registration );
                     } ?>
                   </p>
                   <p>
