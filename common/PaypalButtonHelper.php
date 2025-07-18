@@ -13,6 +13,7 @@
       $buttonDelivered = false;
       
       //2021 two days of awesome check
+      // TODO: fix this in the DB so that it just checks if there's a linked event
       $registeredForBoth = false;
       if( ($event_id == $event_id_2da1) || ($event_id == $event_id_2da2) ) {
         $registeredForBoth = DatabaseHelper::isEntrantRegistered($entrant_id, $event_id_2da1) && DatabaseHelper::isEntrantRegistered($entrant_id, $event_id_2da2);
@@ -33,6 +34,7 @@
       </strong>
       <?php
       if( $registeredForBoth ) {
+        // Two days of awesome reg with a discount - SCCA members
         if ( $registration[ 'entrant_scca_status' ] == 1  ) {
           if( $totalRemainingEntryFee == 50 ) { 
             $buttonDelivered = true;?>
@@ -69,6 +71,7 @@
             </form>
           <?php } ?>
         <?php } else {
+          // Two days of awesome reg with a discount - weekend members
           if( $totalRemainingEntryFee == 60 ) { 
             $buttonDelivered = true;?>
             <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
@@ -105,6 +108,7 @@
           <?php } ?>
         <?php }
       } else {
+        // Single event reg only - SCCA members
         if ( $registration[ 'entrant_scca_status' ] == 1  ) {
           if( $totalRemainingEntryFee == 30 ) { 
             $buttonDelivered = true;?>
@@ -128,8 +132,31 @@
             <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
             <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
             </form>
+          <?php } else if ( $totalRemainingEntryFee == 42 ) { 
+            $buttonDelivered = true;?>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_s-xclick" />
+            <input type="hidden" name="hosted_button_id" value="L9UEHWPF83EL2" />
+            <table>
+            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
+            </table>
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
+            </form>
+          <?php } else if ( $totalRemainingEntryFee == 52 ) { 
+            $buttonDelivered = true;?>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_s-xclick" />
+            <input type="hidden" name="hosted_button_id" value="UUPMCBF3EUF6N" />
+            <table>
+            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
+            </table>
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
+            </form>
           <?php } ?>
         <?php } else {
+          // Single event reg only - weekend members
           if( $totalRemainingEntryFee == 45 ) { 
             $buttonDelivered = true;?>
             <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
@@ -151,6 +178,28 @@
             </table>
             <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
             <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+            </form>
+          <?php } else if ( $totalRemainingEntryFee == 57 ) { 
+            $buttonDelivered = true;?>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_s-xclick" />
+            <input type="hidden" name="hosted_button_id" value="KKZY7CYF6YGHA" />
+            <table>
+            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
+            </table>
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
+            </form>
+          <?php } else if ( $totalRemainingEntryFee == 67 ) { 
+            $buttonDelivered = true;?>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_s-xclick" />
+            <input type="hidden" name="hosted_button_id" value="HZ88SZ9TL2E54" />
+            <table>
+            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
+            </table>
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
             </form>
           <?php } ?>
         <?php }
