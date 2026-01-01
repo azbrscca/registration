@@ -139,7 +139,10 @@
       }
     }
     $registration[ 'entry_fee' ] = $fee;
-    /* / calculate entry fee */
+    /* 
+      calculate entry fee. note that discounts are handled
+      by the paypal button helper.
+    */
 
     /*
       check for registration id in case the user
@@ -226,7 +229,7 @@
         <div class="span12">
           <div class="alert">
             <i class="icon-warning-sign icon-large"></i>
-            2023 SCCA rules no longer allow ECE helmets! All helmets must be Snell SA or M rated, 2010 or newer.
+            All helmets must be Snell SA or M rated, 2010 or newer. 2026 is the last year that the Snell 2010 helmets will be accepted. 
             Please review the
             <a href="<?php echo baseHref; ?>register/2023_helmets.pdf" target="_blank">Required Helmet Certification Decals</a>
             quick reference sheet published by the SCCA. Check the decal on your helmet ensure that your helmet will be legal <em>before</em> you show up to an event!
@@ -755,6 +758,13 @@
                       <div class="text-warning"><i class="icon-warning-sign icon-large"></i> Completing this field does <strong>not</strong> register co-drivers for the event!</div>
                       <span id="codriver-help"><i class="icon-info-sign icon-large"></i> More Information</span>
                     </div>
+                  </div>
+                </div>
+
+                <div class="control-group" id="registration_discount_code-cg">
+                  <label class="control-label" for="registration_discount_code">Discount Code (if applicable)</label>
+                  <div class="controls">
+                    <input class="input-xlarge" id="registration_discount_code" name="registration[discount_code]" type="text" />
                   </div>
                 </div>
 <?php } else { ?>
