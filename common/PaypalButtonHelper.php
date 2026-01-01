@@ -8,6 +8,10 @@
       $event_id = $event[ 'id' ];
       $entrant_id = $registration[ 'entrant_id' ];
       $totalRemainingEntryFee = $registration[ 'entry_fee' ];
+
+      // TODO: for a two day event, change the event IDs here. Note that the paypal button logic
+      // for two day events is out of date with respect to price; both the buttons and the logic
+      // need to be updated.
       $event_id_2da1 = 484;
       $event_id_2da2 = 485;
       $buttonDelivered = false;
@@ -179,7 +183,7 @@
             <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
             <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
             </form>
-          <?php } else if ( $totalRemainingEntryFee == 57 ) { 
+          <?php } else if ( $totalRemainingEntryFee == 62 ) { 
             $buttonDelivered = true;?>
             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
             <input type="hidden" name="cmd" value="_s-xclick" />
@@ -190,7 +194,7 @@
             <input type="hidden" name="currency_code" value="USD" />
             <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
             </form>
-          <?php } else if ( $totalRemainingEntryFee == 67 ) { 
+          <?php } else if ( $totalRemainingEntryFee == 72 ) { 
             $buttonDelivered = true;?>
             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
             <input type="hidden" name="cmd" value="_s-xclick" />
