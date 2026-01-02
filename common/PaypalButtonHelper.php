@@ -25,12 +25,16 @@
       
       if( $registeredForBoth ) {
         //We need to calculate the Two Days of Awesome entry fee. The discount is $10. However, weekend members get a break on the $10 weekend member fee, so their discount is $20
+        // TODO: if you want additional discount codes to apply to the two days of awesome, more work is needed here.
         if ( $registration[ 'entrant_scca_status' ] == 1  ) {
           $totalRemainingEntryFee = -10;
         } else {
           $totalRemainingEntryFee = -20;
         }
         $totalRemainingEntryFee = $totalRemainingEntryFee + DatabaseHelper::getEntrantEntryFee($entrant_id, $event_id_2da1) + DatabaseHelper::getEntrantEntryFee($entrant_id, $event_id_2da2);
+      } else {
+        // Check if the user has submitted a valid discount code, apply it if so
+        $totalRemainingEntryFee = $totalRemainingEntryFee - PaypalButtonHelper::getDiscountAmount($event, $registration);
       }
       ?>
       <strong>
@@ -114,28 +118,18 @@
       } else {
         // Single event reg only - SCCA members
         if ( $registration[ 'entrant_scca_status' ] == 1  ) {
-          if( $totalRemainingEntryFee == 30 ) { 
+          if( $totalRemainingEntryFee == 20 ) { 
+            // This button is for Podium Club members who are also SCCA members.
             $buttonDelivered = true;?>
-            <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
-            <input type="hidden" name="cmd" value="_s-xclick">
-            <input type="hidden" name="hosted_button_id" value="9JCHFM4ZXT6AG">
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_s-xclick" />
+            <input type="hidden" name="hosted_button_id" value="SDQ7ZT7QKCL9A" />
             <table>
-            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
+            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxLength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
             </table>
-            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-            <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
-            </form>
-          <?php } else if ( $totalRemainingEntryFee == 40 ) { 
-            $buttonDelivered = true;?>
-            <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
-            <input type="hidden" name="cmd" value="_s-xclick">
-            <input type="hidden" name="hosted_button_id" value="EASWPKGAUB6HY">
-            <table>
-            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
-            </table>
-            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-            <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
-            </form>
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
+          </form>
           <?php } else if ( $totalRemainingEntryFee == 42 ) { 
             $buttonDelivered = true;?>
             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
@@ -161,28 +155,18 @@
           <?php } ?>
         <?php } else {
           // Single event reg only - weekend members
-          if( $totalRemainingEntryFee == 45 ) { 
+          if( $totalRemainingEntryFee == 40 ) { 
+            // This button is for Podium Club members who are Weekend SCCA members
             $buttonDelivered = true;?>
-            <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
-            <input type="hidden" name="cmd" value="_s-xclick">
-            <input type="hidden" name="hosted_button_id" value="MCT4HMFYRQYNE">
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_s-xclick" />
+            <input type="hidden" name="hosted_button_id" value="ABBRHDRPUYE74" />
             <table>
-            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
+            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxLength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
             </table>
-            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-            <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
-            </form>
-          <?php } else if ( $totalRemainingEntryFee == 55 ) { 
-            $buttonDelivered = true;?>
-            <form target="paypal" action="https://www.paypal.com/cgi-bin/webscr" method="post">
-            <input type="hidden" name="cmd" value="_s-xclick">
-            <input type="hidden" name="hosted_button_id" value="VYQZ5UML7B3ZE">
-            <table>
-            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
-            </table>
-            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-            <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
-            </form>
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
+          </form>
           <?php } else if ( $totalRemainingEntryFee == 62 ) { 
             $buttonDelivered = true;?>
             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
@@ -221,6 +205,25 @@
           Please send a PayPal payment to payments@azbrscca.org to complete payment
         <?php }
       }
+    }
+
+    private static function getDiscountAmount( $event, $registration ) {
+      if( $registration[ 'discount_code' ] == '' ) {
+        return 0;
+      }
+      $q = new Query( "discount_codes" );
+      $q->addWhere( 'code', $registration[ 'discount_code' ] );
+      $retrievedDiscount = $q->selectOne();
+      if( $retrievedDiscount == NULL ) {
+        return 0;
+      }
+      // TODO: this logic does not take advantage of the stuff in the schema. For now this gets us going with Podium Club events.
+      // Also in the future we need to filter by event location.
+      $discountAmount = $retrievedDiscount[ 'discount_value' ];
+      if( $discountAmount > 0 ) {
+        return $discountAmount;
+      }
+      return 0;
     }
 
   } // class PaypalButtonHelper

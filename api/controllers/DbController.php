@@ -6,6 +6,7 @@
       "comp_categories",
       "comp_groups",
       "discounts",
+      "discount_codes",
       "entry_forms",
       "events",
       "event_types",
