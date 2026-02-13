@@ -118,19 +118,7 @@
       } else {
         // Single event reg only - SCCA members
         if ( $registration[ 'entrant_scca_status' ] == 1  ) {
-          if( $totalRemainingEntryFee == 20 ) { 
-            // This button is for Podium Club members who are also SCCA members.
-            $buttonDelivered = true;?>
-            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
-            <input type="hidden" name="cmd" value="_s-xclick" />
-            <input type="hidden" name="hosted_button_id" value="SDQ7ZT7QKCL9A" />
-            <table>
-            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxLength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
-            </table>
-            <input type="hidden" name="currency_code" value="USD" />
-            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
-          </form>
-          <?php } else if ( $totalRemainingEntryFee == 42 ) { 
+          if ( $totalRemainingEntryFee == 42 ) { 
             $buttonDelivered = true;?>
             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
             <input type="hidden" name="cmd" value="_s-xclick" />
@@ -152,21 +140,32 @@
             <input type="hidden" name="currency_code" value="USD" />
             <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
             </form>
+          <?php } else if ( $totalRemainingEntryFee == 80 ) { 
+            $buttonDelivered = true;?>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_s-xclick" />
+            <input type="hidden" name="hosted_button_id" value="NKC853GGEMBUC" />
+            <table>
+            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
+            </table>
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
+            </form>
           <?php } ?>
         <?php } else {
           // Single event reg only - weekend members
-          if( $totalRemainingEntryFee == 40 ) { 
+          if( $totalRemainingEntryFee == 20 ) { 
             // This button is for Podium Club members who are Weekend SCCA members
             $buttonDelivered = true;?>
             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
             <input type="hidden" name="cmd" value="_s-xclick" />
-            <input type="hidden" name="hosted_button_id" value="ABBRHDRPUYE74" />
+            <input type="hidden" name="hosted_button_id" value="HJRT3QB85AX5Q" />
             <table>
-            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxLength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
+            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
             </table>
             <input type="hidden" name="currency_code" value="USD" />
             <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
-          </form>
+            </form>
           <?php } else if ( $totalRemainingEntryFee == 62 ) { 
             $buttonDelivered = true;?>
             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
@@ -183,6 +182,17 @@
             <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
             <input type="hidden" name="cmd" value="_s-xclick" />
             <input type="hidden" name="hosted_button_id" value="HZ88SZ9TL2E54" />
+            <table>
+            <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
+            </table>
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_cart_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Add to Cart" />
+            </form>
+          <?php } else if ( $totalRemainingEntryFee == 100 ) { 
+            $buttonDelivered = true;?>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+            <input type="hidden" name="cmd" value="_s-xclick" />
+            <input type="hidden" name="hosted_button_id" value="DKP4GGGQ8N3VY" />
             <table>
             <tr><td><input type="hidden" name="on0" value="Driver name">Driver name</td></tr><tr><td><input type="text" name="os0" maxlength="200" value="<?php echo $registration[ 'entrant_name_first' ], " ", $registration[ 'entrant_name_last' ]?>"></td></tr>
             </table>
