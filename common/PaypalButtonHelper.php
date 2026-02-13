@@ -211,7 +211,7 @@
         <?php } else if ( $totalRemainingEntryFee == 10 ) { 
           $buttonDelivered = true;?>
           
-        <?php } else { ?>
+        <?php } else if ( $totalRemainingEntryFee > 0 ) { ?>
           Please send a PayPal payment to payments@azbrscca.org to complete payment
         <?php }
       }
