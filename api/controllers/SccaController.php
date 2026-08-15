@@ -30,6 +30,11 @@
         curl_setopt($cs, CURLOPT_TIMEOUT, 60);
         $response = curl_exec($cs);
 
+        $curl_errno = curl_errno($cs);
+        $curl_error = curl_error($cs);
+        $http_code = curl_getinfo($cs, CURLINFO_HTTP_CODE);
+        error_log( "SccaController: netForum HTTP $http_code, curl_errno $curl_errno ($curl_error), response: " . var_export( $response, true ) );
+
         libxml_use_internal_errors(true);
         try {
           $xml = new SimpleXMLElement($response);
@@ -57,6 +62,7 @@
             return $data;
           }
         } catch ( Exception $e ) {
+          error_log( "SccaController: XML parse failed: " . $e->getMessage() );
           return array( 'error' => "Sorry, an error prevented us from verifying your membership." );
         }
 
